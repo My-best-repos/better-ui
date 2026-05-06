@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/davidalarcondev/better-ui/compare/v1.0.0...v1.0.1) (2026-05-06)
+
+
+### Bug Fixes
+
+* **scanners:** improve dependency scanning heuristics and ESLint scanning resilience ([d687485](https://github.com/davidalarcondev/better-ui/commit/d68748510e699a65977739d8fbda60fa4445729f))
+
 ## [1.0.0](https://github.com/davidalarcondev/better-ui/compare/v0.3.1...v1.0.0) (2026-05-03)
 
 
