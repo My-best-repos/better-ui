@@ -43,7 +43,7 @@ npx ts-node src/cli.ts /menu
 Then test these flows:
 
 ```text
-type /scan and press Enter
+type /scan and press Enter (or chain commands dynamically)
 type /fix-preview and press Enter
 type /review-changed and press Enter
 press Ctrl+Shift+S to open the command palette

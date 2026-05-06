@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { resolveProjectPath } from "../projectPaths";
 
-export interface DependencyReport {
+interface DependencyReport {
   unusedDependencies: string[];
   heavyDependencies: Array<{ name: string; sizeKb: number }>;
 }

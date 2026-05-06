@@ -24,7 +24,7 @@ function normalizeExtensions(exts?: string[]) {
   return exts && exts.length > 0 ? exts : DEFAULT_EXTENSIONS;
 }
 
-export interface ScanProjectOptions {
+interface ScanProjectOptions {
   files?: string[];
 }
 

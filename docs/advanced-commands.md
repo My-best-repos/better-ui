@@ -28,7 +28,7 @@ npx ts-node src/cli.ts /advanced
 - `/pr-summary`: Generates a Markdown document summarizing your current branch's health impact, ready to be pasted into a GitHub or GitLab Pull Request.
 
 ## Interactive Follow-ups
-After running a major command like `/scan` within the TUI, the interface now prompts you with "Suggested Follow-up Commands". This interactive menu allows you to execute these subcommands (like chaining a scan directly into a `/fix --interactive`) by just pressing Enter, without having to type the slash commands.
+After running a major command like `/scan` within the TUI, the interface now prompts you with "Suggested Follow-up Commands". This interactive menu allows you to execute these subcommands (like chaining a scan directly into a `/fix --interactive`) by selecting them. You can also press `a` to instantly return to the main dashboard or press `/` to write a custom command instead of selecting one from the list.
 
 ## Minimal commands to test
 
