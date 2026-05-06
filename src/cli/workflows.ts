@@ -13,12 +13,12 @@ import { applyEslintFixes, applyFixHunks, applyFixPreviews, previewEslintFixes, 
 import { ScanReport } from "../types";
 import { buildExplainSummary } from "../explanations";
 
-export interface ScopeOptions {
+interface ScopeOptions {
   changed?: boolean;
   staged?: boolean;
 }
 
-export function resolveScope(options?: ScopeOptions): "all" | "changed" | "staged" {
+function resolveScope(options?: ScopeOptions): "all" | "changed" | "staged" {
   if (options?.staged) {
     return "staged";
   }
@@ -28,7 +28,7 @@ export function resolveScope(options?: ScopeOptions): "all" | "changed" | "stage
   return "all";
 }
 
-export function resolveScopedFiles(projectRoot: string, options?: ScopeOptions) {
+function resolveScopedFiles(projectRoot: string, options?: ScopeOptions) {
   const scope = resolveScope(options);
   if (scope === "changed") {
     return getChangedFiles(projectRoot, "changed");
@@ -91,7 +91,7 @@ export async function runInteractiveFixWorkflow(projectRoot: string, options?: S
   return { previews, scope: resolveScope(options) };
 }
 
-export async function applyInteractiveFixSelection(projectRoot: string, previews: Awaited<ReturnType<typeof runInteractiveFixWorkflow>>["previews"], selectedFiles: string[], options?: ScopeOptions) {
+async function applyInteractiveFixSelection(projectRoot: string, previews: Awaited<ReturnType<typeof runInteractiveFixWorkflow>>["previews"], selectedFiles: string[], options?: ScopeOptions) {
   await applyFixPreviews(projectRoot, previews, selectedFiles);
   const config = loadConfig(projectRoot);
   const exts = getExtensions(config);
