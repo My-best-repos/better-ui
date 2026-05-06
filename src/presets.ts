@@ -1,4 +1,4 @@
-export interface Preset {
+interface Preset {
   id: string;
   label: string;
   description: string;

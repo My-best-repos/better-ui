@@ -31,50 +31,157 @@ import {
   runScanWorkflow
 } from "../cli/workflows";
 
-async function pause(message = "Press enter to return to the command center") {
-  await prompt({ type: "input", name: "continue", message: chalk.dim(message), initial: "" } as any);
+// presentFollowupMenu returns a command string when the user selects a follow-up
+// to execute. The main loop will then run that command and avoid clearing the
+// screen so the command output remains visible.
+let forceFreshDashboard = false;
+
+async function promptCustomCommand() {
+  const inputPrompt = new (Enquirer as any).Input({
+    name: "command",
+    message: chalk.bold("Command") + chalk.gray(" (or 'a' to exit):"),
+    initial: "/",
+    prefix: function() { return " "; }
+  });
+
+  let interceptedA = false;
+  inputPrompt.on("keypress", (ch: string, key: any) => {
+    // If the user presses 'a' and the input is empty or just '/', cancel and go back
+    if ((ch === "a" || (key && key.name === "a")) && (inputPrompt.input === "" || inputPrompt.input === "/")) {
+      interceptedA = true;
+      inputPrompt.cancel();
+    }
+  });
+
+  try {
+    const answer = await inputPrompt.run();
+    if (answer === "a" || answer === "/a") {
+      forceFreshDashboard = true;
+      return null;
+    }
+    return answer;
+  } catch {
+    forceFreshDashboard = true;
+    return null; // Cancelled
+  }
+}
+
+async function pause(message = "Press 'a' to return to the main menu, or '/' to type another command:") {
+  process.stdout.write("\n" + chalk.dim(message) + " ");
+  
+  const firstChar = await new Promise<string>(resolve => {
+    const { stdin } = process;
+    const wasRaw = stdin.isRaw;
+    if (stdin.isTTY) stdin.setRawMode(true);
+    stdin.resume();
+
+    const onData = (data: Buffer) => {
+      const key = data.toString();
+      if (key.toLowerCase() === "a" || key === "\u0003") {
+        stdin.off("data", onData);
+        if (stdin.isTTY) stdin.setRawMode(wasRaw);
+        resolve(key);
+      } else if (key === "/") {
+        stdin.off("data", onData);
+        if (stdin.isTTY) stdin.setRawMode(wasRaw);
+        resolve("/");
+      }
+    };
+
+    stdin.on("data", onData);
+  });
+
+  if (firstChar.toLowerCase() === "a" || firstChar === "\u0003") {
+    forceFreshDashboard = true;
+    console.log();
+    return null;
+  }
+
+  // If '/' was pressed, prompt the user for a command using Enquirer
+  console.log();
+  return await promptCustomCommand();
 }
 
 async function presentFollowupMenu(cwd: string, followups: Array<{ name: string; message: string; value: string | null }>) {
-  // Allow the user to run one or more followup subcommands or return to the
-  // command center. The menu updates if a followup itself returns a new set
-  // of followups (for example, re-running /scan with different flags).
   let current = followups || [];
   while (true) {
     const followupChoices = [
-      { name: "press-enter", message: "Press Enter to return to command center", value: null },
+      { name: "return-dashboard", message: "Return to main menu (press 'a')", value: null },
+      { name: "custom-command", message: "Type another command (press '/')", value: "custom" },
       ...current.map(f => ({ name: f.name, message: f.message, value: f.value }))
     ];
 
     try {
-      const pick: any = await prompt({ type: "select", name: "follow", message: "Choose an action (press Enter to return)", choices: followupChoices } as any);
-      const selectedName = pick.follow;
-      if (selectedName === "press-enter") break;
+      const selectPrompt = new (Enquirer as any).Select({
+        name: "follow",
+        message: "Choose an action. Press 'a' for the main menu or '/' for another command:",
+        choices: followupChoices
+      });
 
-      const selectedChoice = followupChoices.find(c => c.name === selectedName);
+      let interceptedAction: string | null = null;
+      selectPrompt.on("keypress", (ch: string, key: any) => {
+        if (ch === "a" || (key && key.name === "a")) {
+          interceptedAction = "a";
+          selectPrompt.submit(); // Force submission to break out
+        } else if (ch === "/" || (key && key.name === "/")) {
+          interceptedAction = "/";
+          selectPrompt.submit();
+        }
+      });
+
+      const selectedResult = await selectPrompt.run();
+
+      // Enquirer returns the choice's `value` by default, but older code assumed
+      // it returned the `name`. Match either one so we handle both shapes.
+      const selectedChoice = followupChoices.find(c => c.name === selectedResult || c.value === selectedResult);
+
+      // Honor intercepted shortcuts first
+      if (interceptedAction === "a") {
+        forceFreshDashboard = true;
+        return null;
+      }
+      if (interceptedAction === "/") {
+        console.log();
+        return await promptCustomCommand();
+      }
+
+      // If the user explicitly chose the "return-dashboard" or "custom-command" items
+      // the selectedChoice will be present; handle them by name to keep behaviour stable.
+      if (selectedChoice && selectedChoice.name === "return-dashboard") {
+        forceFreshDashboard = true;
+        return null;
+      }
+      if (selectedChoice && selectedChoice.name === "custom-command") {
+        console.log();
+        return await promptCustomCommand();
+      }
+
       const cmd = selectedChoice ? selectedChoice.value : null;
       if (!cmd) break;
 
-      const res = await runSlashCommand(cwd, cmd);
-      if (res && res.followups && Array.isArray(res.followups) && res.followups.length > 0) {
-        current = res.followups;
-        // loop continues showing the updated followups
-        continue;
-      } else {
-        // Stop showing the followup menu if the command executed successfully but has no further followups.
-        break;
-      }
+      // Return the selected follow-up command to the caller (runTui). The main
+      // loop will execute it and intentionally avoid clearing the screen so
+      // the command's output remains visible to the user.
+      return cmd as string;
     } catch (err) {
       if (isPromptCloseError(err) || (err === "")) {
-        // User pressed Esc or Ctrl+C to cancel the prompt
-        break;
+        hardClear();
+        console.log(chalk.dim("Leaving better-ui. Bye see you soon 😊"));
+        process.exit(0);
       }
       console.error("Error running subcommand:", err);
       break;
     }
   }
 
-  await pause();
+  return null;
+}
+
+function hardClear() {
+  // PowerShell/Windows can be inconsistent with ANSI-only clears, so use both
+  // console.clear() and ANSI escape sequences for a reliable fresh screen.
+  console.clear();
+  process.stdout.write("\x1B[2J\x1B[3J\x1B[H");
 }
 
 function isPromptCloseError(error: unknown) {
@@ -86,24 +193,55 @@ function isPromptCloseError(error: unknown) {
 
 async function showCommandPalette() {
   try {
-    const header = `${chalk.bold("Command Palette")} - type to filter, Enter to select`;
+    const header = chalk.magenta.bold("Command Palette") + chalk.gray(" — Type to filter, Enter to select, 'a' to close");
+
+    const boxWidth = 90;
+    const slashWidth = 22;
+    
+    const topBorder = chalk.cyan("╭" + "─".repeat(boxWidth) + "╮");
+    const bottomBorder = chalk.cyan("╰" + "─".repeat(boxWidth) + "╯");
+
     const choices = COMMANDS
       .filter(command => command.slash !== "/commands" && command.slash !== "/help")
-      .map(command => ({
-        name: command.slash,
-        message: `${chalk.bold(command.slash)} ${chalk.dim("- " + command.description)}`
-      }));
+      .map(command => {
+        const slashPad = command.slash.padEnd(slashWidth, " ");
+        return {
+          name: command.slash,
+          message: `  ${chalk.bold.white(slashPad)} ${chalk.gray("-")} ${chalk.dim(command.description)}`,
+          value: command.slash
+        };
+      });
 
-    const answer: any = await prompt({
-      type: "select",
+    const palettePrompt = new (Enquirer as any).AutoComplete({
       name: "command",
       message: header,
-      limit: 14,
-      choices
-    } as any);
+      limit: 12,
+      header: topBorder,
+      footer: bottomBorder,
+      // @ts-ignore
+      prefix: function() { return " "; },
+      choices,
+      // @ts-ignore
+      format: function() { return chalk.cyan(this.input); },
+      result: function(name: string) {
+        return name;
+      }
+    });
 
-    return { shouldExit: false, commandInput: answer.command as string | undefined };
+    let interceptedA = false;
+    palettePrompt.on("keypress", (ch: string, key: any) => {
+      if ((ch === "a" || (key && key.name === "a")) && !palettePrompt.input) {
+        interceptedA = true;
+        palettePrompt.cancel();
+      }
+    });
+
+    const answer = await palettePrompt.run();
+
+    return { shouldExit: false, commandInput: answer as string };
   } catch {
+    // If cancelled (e.g. via 'a' or Esc)
+    forceFreshDashboard = true; // Force clear screen
     return { shouldExit: false, commandInput: undefined };
   }
 }
@@ -117,7 +255,7 @@ function readOption(tokens: string[], option: string) {
   return index >= 0 ? tokens[index + 1] : undefined;
 }
 
-async function runSlashCommand(cwd: string, input: string) {
+async function _runSlashCommand(cwd: string, input: string) {
   const tokens = parseSlashCommand(input);
   if (!tokens || tokens.length === 0) {
     printPanel("Slash Command", ["Command not recognized. Try /help or /menu."], "yellow");
@@ -505,12 +643,12 @@ async function runSlashCommand(cwd: string, input: string) {
   }
 
   if (command === "tui") {
-    printPanel("Command Center", ["You are already inside the command center."], "green");
-    return { shouldExit: false };
+    forceFreshDashboard = true;
+    return { shouldExit: false, showDashboard: true };
   }
 
   if (command === "exit") {
-    printPanel("Command Center", ["Leaving better-ui."], "green");
+    printPanel("Command Center", ["Leaving better-ui. Bye see you soon 😊"], "green");
     return { shouldExit: true };
   }
 
@@ -518,192 +656,295 @@ async function runSlashCommand(cwd: string, input: string) {
   return { shouldExit: false };
 }
 
+async function runSlashCommand(cwd: string, input: string) {
+  const tokens = parseSlashCommand(input);
+  const command = tokens?.[0];
+  
+  // Do not draw boxes for structural commands
+  if (command === "commands" || command === "tui" || command === "exit") {
+    return await _runSlashCommand(cwd, input);
+  }
+
+  // Draw Top Border
+  const termWidth = Math.min(process.stdout.columns || 80, 100);
+  const title = ` ${input} `;
+  const padLength = Math.max(0, termWidth - 3 - title.length);
+  console.log(`\n${chalk.blue("┏━━")}${chalk.bold.yellow(title)}${chalk.blue("━".repeat(padLength) + "┓")}`);
+
+  const result = await _runSlashCommand(cwd, input);
+
+  // Draw Bottom Border
+  console.log(`${chalk.blue("┗" + "━".repeat(termWidth - 2) + "┛")}\n`);
+
+  return result;
+}
+
 export async function runTui() {
+  process.on("uncaughtException", (err: any) => {
+    if (isPromptCloseError(err)) {
+      hardClear();
+      console.log(chalk.dim("Leaving better-ui. Bye see you soon 😊"));
+      process.exit(0);
+    }
+  });
+
+  process.on("unhandledRejection", (err: any) => {
+    if (isPromptCloseError(err)) {
+      hardClear();
+      console.log(chalk.dim("Leaving better-ui. Bye see you soon 😊"));
+      process.exit(0);
+    }
+  });
+
   const cwd = process.cwd();
+  let nextCommandToRun: string | null = null;
+  let skipClearOnNextDashboard = false;
+  let hasRenderedDashboard = false;
 
   while (true) {
-    const config = loadConfig(cwd);
-    const defaultExts = getExtensions(config) || [".js", ".jsx", ".ts", ".tsx"];
-    const reportPath = getReportFile(cwd, config);
-    const gitEnabled = isGitRepository(cwd);
-    const stack = detectFramework(cwd);
-
-    console.clear();
-    printBanner();
+    let commandInput = "";
     
-    printGrid([
-      {
-        title: "Workspace Dashboard",
-        color: "magenta",
-        lines: [
-          `${chalk.cyan("Path:")} ${cwd}`,
-          `${chalk.cyan("Stack:")} ${stack.join(" + ")}`,
-          `${chalk.cyan("Report:")} ${path.basename(reportPath)}`,
-          `${chalk.cyan("Extensions:")} ${defaultExts.join(", ")}`,
-          `${chalk.cyan("Git:")} ${gitEnabled ? getCurrentBranch(cwd) || "attached" : "not a repository"}`
-        ]
-      },
-      {
-        title: "Quick Actions",
-        color: "cyan",
-        lines: [
-          "Type a slash command below (e.g. /scan, /deps).",
-          "Type /advanced to see pro-tips and subcommands.",
-          "Type /commands or press Ctrl+Shift+S for the palette."
-        ]
+    if (!nextCommandToRun) {
+      const config = loadConfig(cwd);
+      const defaultExts = getExtensions(config) || [".js", ".jsx", ".ts", ".tsx"];
+      const reportPath = getReportFile(cwd, config);
+      const gitEnabled = isGitRepository(cwd);
+      const stack = detectFramework(cwd);
+
+      if (!hasRenderedDashboard || forceFreshDashboard) {
+        hardClear();
       }
-    ]);
-
-    const input = new Input({
-      name: "action",
-      message: chalk.bold("What do you want to do? Type a slash command starting with '/'."),
-      initial: "/"
-    });
-
-    let showCatalog = false;
-    let exitFromPrompt = false;
-    const onCatalogData = (chunk: Buffer) => {
-      if (chunk[0] === 19) {
-        showCatalog = true;
-        try { (input as any).cancel(); } catch (_) {}
-        return;
-      }
-
-      if (chunk[0] === 3) {
-        exitFromPrompt = true;
-        try { (input as any).cancel(); } catch (_) {}
-        return;
-      }
-
-      if (chunk[0] === 27 && chunk.length === 1) {
-        exitFromPrompt = true;
-        try { (input as any).cancel(); } catch (_) {}
-      }
-    };
-
-    input.on("keypress", (_ch: any, key: any) => {
-      if (key && key.ctrl && key.name === "s") {
-        showCatalog = true;
-        try { (input as any).cancel(); } catch (_) {}
-        return;
-      }
-
-      if (key && key.ctrl && key.name === "c") {
-        exitFromPrompt = true;
-        try { (input as any).cancel(); } catch (_) {}
-      }
-    });
-
-    if (process.stdin) {
-      process.stdin.on("data", onCatalogData);
-    }
-
-    try {
-      const answer = await input.run();
-      if (process.stdin) {
-        process.stdin.off("data", onCatalogData);
-      }
-
-      if (showCatalog) {
-        const catalog = await showCommandPalette();
-        showCatalog = false;
-        if (catalog.commandInput) {
-          const selected = await runSlashCommand(cwd, catalog.commandInput);
-          if (selected.showCatalog) {
-            continue;
-          }
-          if (selected.shouldExit) {
-            console.clear();
-            console.log(chalk.dim("Leaving better-ui."));
-            return;
-          }
-          if (selected.followups && Array.isArray(selected.followups) && selected.followups.length > 0) {
-            await presentFollowupMenu(cwd, selected.followups);
-          } else {
-            await pause();
-          }
+      skipClearOnNextDashboard = false;
+      forceFreshDashboard = false;
+      hasRenderedDashboard = true;
+      printBanner();
+      
+      printGrid([
+        {
+          title: "Workspace Dashboard",
+          color: "magenta",
+          lines: [
+            `${chalk.cyan("Path:")} ${cwd}`,
+            `${chalk.cyan("Stack:")} ${stack.join(" + ")}`,
+            `${chalk.cyan("Report:")} ${path.basename(reportPath)}`,
+            `${chalk.cyan("Extensions:")} ${defaultExts.join(", ")}`,
+            `${chalk.cyan("Git:")} ${gitEnabled ? getCurrentBranch(cwd) || "attached" : "not a repository"}`
+          ]
+        },
+        {
+          title: "Quick Actions",
+          color: "cyan",
+          lines: [
+            "Type a slash command below (e.g. /scan, /deps).",
+            "Type /advanced to see pro-tips and subcommands.",
+            "Type /commands or press Ctrl+Shift+S for the palette."
+          ]
         }
-        continue;
+      ]);
+
+      const input = new Input({
+        name: "action",
+        message: chalk.bold("What do you want to do? Type a slash command starting with '/'."),
+        initial: "/"
+      });
+
+      let showCatalog = false;
+      let exitFromPrompt = false;
+      const onCatalogData = (chunk: Buffer) => {
+        if (chunk[0] === 19) {
+          showCatalog = true;
+          try { (input as any).cancel(); } catch (_) {}
+          return;
+        }
+
+        if (chunk[0] === 3) {
+          exitFromPrompt = true;
+          try { (input as any).cancel(); } catch (_) {}
+          return;
+        }
+
+        if (chunk[0] === 27 && chunk.length === 1) {
+          exitFromPrompt = true;
+          try { (input as any).cancel(); } catch (_) {}
+        }
+      };
+
+      input.on("keypress", (_ch: any, key: any) => {
+        if (key && key.ctrl && key.name === "s") {
+          showCatalog = true;
+          try { (input as any).cancel(); } catch (_) {}
+          return;
+        }
+
+        if (key && key.ctrl && key.name === "c") {
+          exitFromPrompt = true;
+          try { (input as any).cancel(); } catch (_) {}
+        }
+      });
+
+      if (process.stdin) {
+        process.stdin.on("data", onCatalogData);
       }
 
-      if (exitFromPrompt) {
-        console.clear();
-        console.log(chalk.dim("Leaving better-ui."));
-        return;
-      }
+      try {
+        const answer = await input.run();
+        if (process.stdin) {
+          process.stdin.off("data", onCatalogData);
+        }
 
-      let commandInput = (answer || "").toString().trim();
-      if (!commandInput.startsWith("/")) {
-        printPanel("Slash Command", ["Please type a command that starts with '/' (e.g. /scan --format json)"], "yellow");
-        await pause();
-        continue;
-      }
-
-       const result = await runSlashCommand(cwd, commandInput);
-        if (result.showCatalog) {
+        if (showCatalog) {
           const catalog = await showCommandPalette();
+          showCatalog = false;
           if (catalog.commandInput) {
             const selected = await runSlashCommand(cwd, catalog.commandInput);
+            if (selected.showCatalog) {
+              continue;
+            }
             if (selected.shouldExit) {
-              console.clear();
-              console.log(chalk.dim("Leaving better-ui."));
-              return;
+              hardClear();
+              console.log(chalk.dim("Leaving better-ui. Bye see you soon 😊"));
+              process.exit(0);
+            }
+            if (selected.showDashboard) {
+              nextCommandToRun = null;
+              continue;
             }
             if (selected.followups && Array.isArray(selected.followups) && selected.followups.length > 0) {
-              await presentFollowupMenu(cwd, selected.followups);
+              const followup = await presentFollowupMenu(cwd, selected.followups);
+              if (followup) {
+                nextCommandToRun = followup;
+                skipClearOnNextDashboard = true;
+              } else {
+                nextCommandToRun = null;
+              }
             } else {
-              await pause();
+              nextCommandToRun = await pause();
             }
           }
           continue;
         }
 
-       if (result.shouldExit) {
-         console.clear();
-         console.log(chalk.dim("Leaving better-ui."));
-         return;
-       }
-
-        // If the command returned followups, offer the execute-subcommand menu
-        if (result.followups && Array.isArray(result.followups) && result.followups.length > 0) {
-          await presentFollowupMenu(cwd, result.followups);
-        } else {
-          await pause();
+        if (exitFromPrompt) {
+          hardClear();
+          console.log(chalk.dim("Leaving better-ui. Bye see you soon 😊"));
+          process.exit(0);
         }
-    } catch (err) {
-      if (process.stdin) {
-        process.stdin.off("data", onCatalogData);
-      }
 
-      if (exitFromPrompt) {
-        console.clear();
-        console.log(chalk.dim("Leaving better-ui."));
-        return;
+        commandInput = (answer || "").toString().trim();
+      } catch (err) {
+        if (process.stdin) {
+          process.stdin.off("data", onCatalogData);
+        }
+  
+        if (exitFromPrompt) {
+          hardClear();
+          console.log(chalk.dim("Leaving better-ui. Bye see you soon 😊"));
+          process.exit(0);
+        }
+  
+          if (showCatalog) {
+            const catalog = await showCommandPalette();
+            showCatalog = false;
+            if (catalog.commandInput) {
+              const selected = await runSlashCommand(cwd, catalog.commandInput);
+              if (selected.shouldExit) {
+                hardClear();
+                console.log(chalk.dim("Leaving better-ui. Bye see you soon 😊"));
+                process.exit(0);
+              }
+              if (selected.showDashboard) {
+                nextCommandToRun = null;
+                continue;
+              }
+              if (selected.followups && Array.isArray(selected.followups) && selected.followups.length > 0) {
+                const followup = await presentFollowupMenu(cwd, selected.followups);
+                if (followup) {
+                  nextCommandToRun = followup;
+                  skipClearOnNextDashboard = true;
+                } else {
+                  nextCommandToRun = null;
+                }
+              } else {
+                nextCommandToRun = await pause();
+              }
+            }
+            continue;
+          }
+  
+        if (isPromptCloseError(err)) {
+          hardClear();
+          console.log(chalk.dim("Leaving better-ui. Bye see you soon 😊"));
+          process.exit(0);
+        }
+  
+        console.error("TUI error:", err);
+        nextCommandToRun = await pause("An error occurred. Press 'a' to return to the main menu, or '/' to type another command:");
+        continue;
       }
+    } else {
+      commandInput = nextCommandToRun;
+      nextCommandToRun = null;
+      // We don't clear the screen here so chained commands
+      // appear below the previous output.
+    }
 
-      if (showCatalog) {
+    if (!commandInput.startsWith("/")) {
+      printPanel("Slash Command", ["Please type a command that starts with '/' (e.g. /scan --format json)"], "yellow");
+      nextCommandToRun = await pause();
+      continue;
+    }
+
+     const result = await runSlashCommand(cwd, commandInput);
+      if (result.showCatalog) {
         const catalog = await showCommandPalette();
-        showCatalog = false;
         if (catalog.commandInput) {
           const selected = await runSlashCommand(cwd, catalog.commandInput);
           if (selected.shouldExit) {
-            console.clear();
-            console.log(chalk.dim("Leaving better-ui."));
-            return;
+            hardClear();
+            console.log(chalk.dim("Leaving better-ui. Bye see you soon 😊"));
+            process.exit(0);
           }
-          await pause();
-        }
+          if (selected.showDashboard) {
+            nextCommandToRun = null;
+            continue;
+          }
+          if (selected.followups && Array.isArray(selected.followups) && selected.followups.length > 0) {
+            const followup = await presentFollowupMenu(cwd, selected.followups);
+            if (followup) {
+              nextCommandToRun = followup;
+              skipClearOnNextDashboard = true;
+            } else {
+              nextCommandToRun = null;
+            }
+          } else {
+            nextCommandToRun = await pause();
+          }
+          }
         continue;
       }
 
-      if (isPromptCloseError(err)) {
-        console.clear();
-        console.log(chalk.dim("Leaving better-ui."));
-        return;
-      }
+     if (result.showDashboard) {
+       nextCommandToRun = null;
+       continue;
+     }
 
-      console.error("TUI error:", err);
-      await pause("An error occurred. Press enter to continue");
-    }
+     if (result.shouldExit) {
+       hardClear();
+       console.log(chalk.dim("Leaving better-ui. Bye see you soon 😊"));
+       process.exit(0);
+     }
+
+      // If the command returned followups, offer the execute-subcommand menu
+      if (result.followups && Array.isArray(result.followups) && result.followups.length > 0) {
+        const followup = await presentFollowupMenu(cwd, result.followups);
+        if (followup) {
+          nextCommandToRun = followup;
+          skipClearOnNextDashboard = true;
+        } else {
+          nextCommandToRun = null;
+        }
+      } else {
+        nextCommandToRun = await pause();
+      }
   }
 }

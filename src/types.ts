@@ -1,6 +1,6 @@
-export type IssueCategory = "correctness" | "maintainability" | "accessibility" | "performance" | "dx" | "code-quality";
+type IssueCategory = "correctness" | "maintainability" | "accessibility" | "performance" | "dx" | "code-quality";
 
-export type IssueImpact = "high" | "medium" | "low";
+type IssueImpact = "high" | "medium" | "low";
 
 export interface LintMessage {
   ruleId: string | null;

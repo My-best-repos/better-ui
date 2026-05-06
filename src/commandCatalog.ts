@@ -1,4 +1,4 @@
-export interface CommandDefinition {
+interface CommandDefinition {
   name: string;
   slash: string;
   description: string;
@@ -158,6 +158,6 @@ export const COMMANDS: CommandDefinition[] = [
   }
 ];
 
-export function getCommandBySlash(slash: string) {
+function getCommandBySlash(slash: string) {
   return COMMANDS.find(command => command.slash === slash);
 }

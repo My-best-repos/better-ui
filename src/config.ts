@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { resolveProjectPath } from "./projectPaths";
 
-export interface BetterUiConfig {
+interface BetterUiConfig {
   projectName?: string;
   preset?: string;
   defaults?: {
