@@ -4,13 +4,14 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
-function runNpm(args: string[], options: Parameters<typeof spawnSync>[2]) {
-  const npmCli = process.env.npm_execpath
-  if (!npmCli) {
-    throw new Error('npm_execpath is not available in the test environment')
-  }
+function runPnpm(args: string[], options: Parameters<typeof spawnSync>[2]) {
+  // pnpm is the package manager for this project, resolve from PATH via shell
+  return spawnSync('pnpm', args, { ...options, shell: true })
+}
 
-  return spawnSync(process.execPath, [npmCli, ...args], options)
+function runNpm(args: string[], options: Parameters<typeof spawnSync>[2]) {
+  // npm is used to install the packed tarball (simulates end-user behavior)
+  return spawnSync('npm', args, { ...options, shell: true })
 }
 
 // Integration test: ensure the package can be packed, installed in a new
@@ -21,8 +22,8 @@ test(
   () => {
     const repoRoot = process.cwd()
 
-    // Run npm pack (prepack runs the build)
-    const pack = runNpm(['pack'], { encoding: 'utf8', timeout: 120_000 })
+    // Run pnpm pack (prepack runs the build)
+    const pack = runPnpm(['pack'], { encoding: 'utf8', timeout: 120_000 })
     if (pack.error) throw pack.error
     expect(pack.status).toBe(0)
 
