@@ -1,3 +1,6 @@
+allowBuilds:
+  sharp: true
+
 # ==============================================================================
 # PNPM WORKSPACE CONFIGURATION
 # ==============================================================================
@@ -5,12 +8,12 @@
 # Single-package workspace — the root is the only package.
 # No monorepo packages (no apps/*, no packages/*).
 
-# PRE-INSTALL SECURITY — SUPPLY CHAIN BLINDAJE
+# PRE-INSTALL SECURITY — SUPPLY CHAIN PROTECTION
 # ------------------------------------------------------------------------------
 
-# Blocks packages less than 1 day old (1440 minutes, pnpm v11 default).
+# Blocks packages less than 1.5 days old (2160 minutes).
 # Mitigates zero-day attacks from freshly published malicious packages.
-minimumReleaseAge: 4320
+minimumReleaseAge: 2160
 
 # Safe-by-default execution policy. Errors out immediately if an unlisted
 # package requires a build script, instead of failing silently.
@@ -18,9 +21,6 @@ strictDepBuilds: true
 
 # Explicit whitelist of packages allowed to run postinstall/build scripts.
 # All other packages are blocked from executing code at install time.
-allowBuilds:
-  # Allowed: Required for fast bundling and compiling JavaScript/TypeScript assets.
-  esbuild: true
-  
-  # Allowed: Required for high-performance image processing (commonly used in Next.js/Astro).
-  sharp: true
+onlyBuiltDependencies:
+  - esbuild
+  - sharp

@@ -3,6 +3,7 @@
   "version": "1.0.1",
   "private": false,
   "description": "Open source terminal command center for frontend scanning, review, and safe fixes",
+  "packageManager": "pnpm@11.4.0",
   "main": "dist/src/cli.js",
   "files": [
     "bin",
