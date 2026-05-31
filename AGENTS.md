@@ -31,10 +31,10 @@ Required checklist before making changes (human or automated agent)
 
 1. Read `instructions.md`, `AGENTS.md`, and the relevant `docs/*` files.
 2. Run the basic local verification steps:
-   - `npm install`
-   - `npx tsc --noEmit` (ensure no type errors)
-   - `npx eslint .` (fix lint issues if applicable)
-   - `npm run build` (when relevant)
+   - `pnpm install`
+   - `pnpm typecheck` (ensure no type errors)
+   - `pnpm lint` (fix lint issues if applicable)
+   - `pnpm build` (when relevant)
 3. Exercise the affected flow to verify behavior. Examples:
    - `npx ts-node src/cli.ts /scan --format json --out tmp-report.json`
    - `npx ts-node src/cli.ts /fix --interactive`
@@ -56,7 +56,7 @@ AI / automated agent policy
 - The PR/commit must include a short summary with:
   - A brief explanation of the change.
   - The list of `docs/` files read.
-  - The verification commands executed (for example: `npx tsc --noEmit`, `npx eslint .`).
+  - The verification commands executed (for example: `pnpm typecheck`, `pnpm lint`).
 
 Where to modify code depending on the change type
 
@@ -74,10 +74,10 @@ Where to modify code depending on the change type
 
 Quick verification commands
 
-- `npm install`
-- `npx tsc --noEmit`
-- `npx eslint .`
-- `npm run build`
+- `pnpm install`
+- `pnpm typecheck`
+- `pnpm lint`
+- `pnpm build`
 - `npx ts-node src/cli.ts /scan --format json --out tmp.json`
 - `npx ts-node src/cli.ts /fix --interactive`
 
@@ -99,7 +99,7 @@ feat: add images --optimize flow
 
 Docs-checked: docs/image-command-behavior.md, docs/config-behavior.md
 
-Verification: npx tsc --noEmit; npx eslint .; npx ts-node src/cli.ts /images --generate --quality 80
+Verification: pnpm typecheck; pnpm lint; npx ts-node src/cli.ts /images --generate --quality 80
 
 Final note
 

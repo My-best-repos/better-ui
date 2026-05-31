@@ -14,10 +14,10 @@ This file defines the baseline contribution workflow for `better-ui`.
 Run these commands from the repository root:
 
 ```bash
-npm install
-npm run typecheck
-npm run lint
-npm run build
+pnpm install
+pnpm typecheck
+pnpm lint
+pnpm build
 ```
 
 When relevant, also exercise the affected CLI flow directly:

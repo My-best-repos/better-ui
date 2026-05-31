@@ -56,9 +56,9 @@ Today the project already provides:
 ## Minimal commands to test
 
 ```bash
-npm run typecheck
-npm run lint
-npm run build
+pnpm typecheck
+pnpm lint
+pnpm build
 npx ts-node src/cli.ts /commands
 npx ts-node src/cli.ts /scan --format json --out tmp-report.json
 ```

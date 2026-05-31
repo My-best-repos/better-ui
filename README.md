@@ -201,10 +201,10 @@ Every primary action exposed in the TUI has a slash-command equivalent. After ru
 ## Development commands
 
 ```bash
-npm install
-npm run verify
-npm run pack:dry-run
-npm run build
+pnpm install
+pnpm verify
+pnpm pack:dry-run
+pnpm build
 npx ts-node src/cli.ts /commands
 ```
 
