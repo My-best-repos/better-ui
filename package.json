@@ -42,7 +42,7 @@
     "smoke:commands": "ts-node src/cli.ts /commands",
     "smoke:scan": "ts-node src/cli.ts /scan --format json --out tmp-report.json",
     "pack:dry-run": "pnpm pack --dry-run",
-    "prepack": "npm run build",
+    "prepack": "pnpm build",
     "prepublishOnly": "pnpm verify",
     "start": "node ./bin/better-ui.js /commands",
     "better-ui:scan": "better-ui-cli /scan",
@@ -65,7 +65,7 @@
     "review",
     "open-source"
   ],
-  "author": "",
+  "author": "David Alarcón <davidalarconcontact@gmail.com> (https://github.com/davidalarcondev)",
   "license": "MIT",
   "publishConfig": {
     "access": "public"
