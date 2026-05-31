@@ -96,10 +96,54 @@ export function printCommandCatalog() {
   console.log(table.toString());
 }
 
+export function printScoreBar(score: number, total = 100, width = 20) {
+  const filled = Math.round((score / total) * width);
+  const empty = width - filled;
+  const barColor = score >= 70 ? chalk.green : score >= 40 ? chalk.yellow : chalk.red;
+  const bar = barColor("█".repeat(filled)) + chalk.gray("░".repeat(empty));
+  console.log(`  ${bar}  ${chalk.bold(String(score))}/${total}`);
+}
+
+const TIMESTAMP_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false
+});
+
+export function formatTimestamp(value: Date | string) {
+  const date = typeof value === "string" ? new Date(value) : value;
+  return TIMESTAMP_FORMATTER.format(date).replace(",", "");
+}
+
+export function formatElapsed(ms: number) {
+  if (ms < 1000) return `${ms} ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(ms < 10000 ? 1 : 0)} s`;
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.round((ms % 60000) / 1000);
+  return `${minutes}m ${seconds}s`;
+}
+
+export function printRunSummary(commandText: string) {
+  printPanel("Run Summary", [
+    `${chalk.cyan("Command:")} ${chalk.bold(commandText)}`,
+    `${chalk.cyan("Started:")} ${formatTimestamp(new Date())}`
+  ], "blue");
+}
+
 export function formatDelta(value: number) {
   if (value === 0) {
     return chalk.gray("0");
   }
 
   return value > 0 ? chalk.red(`+${value}`) : chalk.green(String(value));
+}
+
+export function printFooter() {
+  console.log(chalk.dim("\n──────────────────────────────────────────"));
+  console.log(chalk.dim("better-ui-cli /menu — Open command center"));
+  console.log(chalk.dim("better-ui-cli /commands — All commands\n"));
 }

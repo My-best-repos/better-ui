@@ -13,15 +13,15 @@ export const COMMANDS: CommandDefinition[] = [
     example: "better-ui-cli /scan --format html --out report.html"
   },
   {
-    name: "scan --changed",
+    name: "scan --changed (alias)",
     slash: "/changed",
-    description: "Scan only modified and untracked files in the current git worktree.",
+    description: "Alias for /scan --changed. Scan only modified and untracked files.",
     example: "better-ui-cli /changed"
   },
   {
-    name: "scan --staged",
+    name: "scan --staged (alias)",
     slash: "/staged",
-    description: "Scan only staged files before a commit.",
+    description: "Alias for /scan --staged. Scan only staged files before a commit.",
     example: "better-ui-cli /staged"
   },
   {
@@ -31,21 +31,21 @@ export const COMMANDS: CommandDefinition[] = [
     example: "better-ui-cli /fix --apply"
   },
   {
-    name: "fix",
+    name: "fix --preview (alias)",
     slash: "/fix-preview",
-    description: "Run the same dry-run fix preview shown by the TUI preview action.",
+    description: "Alias for /fix. Dry-run preview of ESLint autofixes.",
     example: "better-ui-cli /fix-preview"
   },
   {
-    name: "fix --apply",
+    name: "fix --apply (alias)",
     slash: "/fix-apply",
-    description: "Apply ESLint autofixes directly, matching the TUI apply-fixes action.",
+    description: "Alias for /fix --apply. Apply ESLint autofixes directly.",
     example: "better-ui-cli /fix-apply"
   },
   {
-    name: "fix --interactive",
+    name: "fix --interactive (alias)",
     slash: "/fix-interactive",
-    description: "Preview autofixes and choose which files to update.",
+    description: "Alias for /fix --interactive. Pick hunks one by one.",
     example: "better-ui-cli /fix --interactive"
   },
   {
@@ -79,9 +79,9 @@ export const COMMANDS: CommandDefinition[] = [
     example: "better-ui-cli /hotspots"
   },
   {
-    name: "check-accessibility",
+    name: "check-accessibility (alias)",
     slash: "/a11y",
-    description: "Show only accessibility-related findings for the selected scope.",
+    description: "Alias for /check-accessibility. Show only a11y findings.",
     example: "better-ui-cli /a11y --changed"
   },
   {
@@ -91,15 +91,15 @@ export const COMMANDS: CommandDefinition[] = [
     example: "better-ui-cli /review --changed"
   },
   {
-    name: "review --changed",
+    name: "review --changed (alias)",
     slash: "/review-changed",
-    description: "Run the same changed-files review action exposed in the TUI.",
+    description: "Alias for /review --changed. Review only modified files.",
     example: "better-ui-cli /review-changed"
   },
   {
-    name: "review --staged",
+    name: "review --staged (alias)",
     slash: "/review-staged",
-    description: "Run the same staged-files review action exposed in the TUI.",
+    description: "Alias for /review --staged. Review only staged files.",
     example: "better-ui-cli /review-staged"
   },
   {
@@ -137,12 +137,6 @@ export const COMMANDS: CommandDefinition[] = [
     slash: "/menu",
     description: "Open the full-screen command menu and dashboard.",
     example: "better-ui-cli /menu"
-  },
-  {
-    name: "commands",
-    slash: "/help",
-    description: "List every command, slash alias, and what it does.",
-    example: "better-ui-cli /commands"
   },
   {
     name: "commands",

@@ -27,8 +27,12 @@ npx ts-node src/cli.ts /advanced
 - `/review --changed`: Runs an isolated check against only the files currently modified in git.
 - `/pr-summary`: Generates a Markdown document summarizing your current branch's health impact, ready to be pasted into a GitHub or GitLab Pull Request.
 
-## Interactive Follow-ups
-After running a major command like `/scan` within the TUI, the interface now prompts you with "Suggested Follow-up Commands". This interactive menu allows you to execute these subcommands (like chaining a scan directly into a `/fix --interactive`) by selecting them. You can also press `a` to instantly return to the main dashboard or press `/` to write a custom command instead of selecting one from the list.
+## Post-command Prompt
+After running a major command like `/scan` within the TUI, the interface returns to the standard pause prompt. Press `a` to return to the dashboard or press `/` to type the next slash command directly.
+
+Both the CLI and the TUI also render a small `Next Best Moves` panel after command output, including variants like `/fix --interactive`, `/review --changed`, or `/images --generate`, so the next useful step is visible immediately.
+
+`/scan` remains the only command that shows the full `Scan Summary` block and score bar. Other commands use the lighter `Run Summary` intro plus their focused panels.
 
 ## Minimal commands to test
 

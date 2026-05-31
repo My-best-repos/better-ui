@@ -14,6 +14,7 @@ Key commands (brief):
   - Output: `--out <path>`; also writes snapshot to `.better-ui/history/latest.json`
   - Scope flags: `--changed`, `--staged` to limit to git diffs.
   - Advanced flags: `--skip-history`, `--top <n>`, `--scan-images`, `--open`
+  - Terminal output: keeps the full `Scan Summary`, richer-workflows hint, and score bar
 
 - `fix` — Applies autofixes or previews. Dry-run by default.
   - `--apply` to write ESLint autofixes to disk.
@@ -25,7 +26,7 @@ Key commands (brief):
 
 - `deps` — Finds unused dependencies and warns about known heavy frontend libraries.
 
-- `advanced` — Shows the built-in cheat sheet for advanced flags, follow-up flows, and high-leverage commands.
+- `advanced` — Shows the built-in cheat sheet for advanced flags, TUI prompt flow, and high-leverage commands.
 
 - `check-accessibility` — Filters scan results to accessibility-related findings.
 
@@ -44,6 +45,7 @@ Key commands (brief):
 - `init` — Bootstraps `better-ui.config.json` and can inject `better-ui:*` scripts into `package.json`. Supports presets: `react`, `next`, `vite`, `vue`, `design-system`, `landing-page`, `typescript-library`.
 
 - `tui` / `/menu` — Starts the interactive terminal UI (prompt-first command center, command palette, dashboards, review flows).
+  - Non-scan slash commands open with a compact `Run Summary`; `/scan` keeps the detailed scan summary
 
 Slash aliases:
 
