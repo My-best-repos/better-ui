@@ -8,27 +8,27 @@ This file describes the current verification bar for `better-ui` and the command
 Run these commands from the repository root:
 
 ```bash
-npm install
-npm run typecheck
-npm run lint
-npm run test:ci
-npm run build
+pnpm install
+pnpm typecheck
+pnpm lint
+pnpm test:ci
+pnpm build
 ```
 
 If you are validating packaging or a release candidate, also run:
 
 ```bash
-npm run pack:dry-run
+pnpm pack:dry-run
 node ./bin/better-ui.js /commands
 ```
 
 ## What each check covers
 
-- `npm run typecheck` verifies the TypeScript codebase without emitting build output.
-- `npm run lint` checks repository code against the current flat ESLint configuration.
-- `npm run test:ci` runs the non-watch Vitest suite.
-- `npm run build` compiles the distributable CLI into `dist/`.
-- `npm run pack:dry-run` verifies what would be published to npm.
+- `pnpm typecheck` verifies the TypeScript codebase without emitting build output.
+- `pnpm lint` checks repository code against the current flat ESLint configuration.
+- `pnpm test:ci` runs the non-watch Vitest suite.
+- `pnpm build` compiles the distributable CLI into `dist/`.
+- `pnpm pack:dry-run` verifies what would be published to npm.
 - `node ./bin/better-ui.js /commands` is the quickest smoke test for the packaged entrypoint.
 
 ## CI expectations
@@ -46,8 +46,8 @@ This keeps contributor workflows and release workflows aligned.
 
 ## When to run extra checks
 
-- If you changed slash-command parsing or the command catalog, run `npm run test:ci` and smoke-test `/commands`.
-- If you changed packaging, docs for installation, or binary behavior, run `npm run pack:dry-run` and `node ./bin/better-ui.js /commands`.
+- If you changed slash-command parsing or the command catalog, run `pnpm test:ci` and smoke-test `/commands`.
+- If you changed packaging, docs for installation, or binary behavior, run `pnpm pack:dry-run` and `node ./bin/better-ui.js /commands`.
 - If you changed scanners or reporters, run a real scan such as `npx ts-node src/cli.ts /scan --format json --out tmp-report.json`.
 
 ## Notes

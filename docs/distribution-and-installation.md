@@ -41,8 +41,8 @@ npx better-ui-cli /scan
 From the `better-ui` repository:
 
 ```bash
-npm install
-npm run verify
+pnpm install
+pnpm verify
 npm link
 ```
 
@@ -72,8 +72,8 @@ The supported UX is:
 Before publishing, run:
 
 ```bash
-npm run verify
-npm run pack:dry-run
+pnpm verify
+pnpm pack:dry-run
 ```
 
 `prepack` builds the distributable package and `prepublishOnly` enforces verification before publication.

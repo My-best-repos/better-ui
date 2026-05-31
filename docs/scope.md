@@ -31,7 +31,7 @@ Quick directory layout:
 
 Quick start (developer):
 
-1. `npm install`
+1. `pnpm install`
 2. `npx tsc --noEmit` (typecheck)
 3. `npx ts-node src/cli.ts /scan --format json --out report.json`
 
