@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/My-best-repos/better-ui/compare/v1.0.1...v1.1.0) (2026-06-01)
+
+
+### Features
+
+* **tui:** refine command output and docs ([30c4a8b](https://github.com/My-best-repos/better-ui/commit/30c4a8b7373943eed4c629a7f368ea40079eca60))
+
 ## [1.0.1](https://github.com/davidalarcondev/better-ui/compare/v1.0.0...v1.0.1) (2026-05-06)
 
 
