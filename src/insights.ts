@@ -52,9 +52,22 @@ export function buildHealthReport(report: ScanReport, images: { file: string; si
     categories[key] = { count, score: Math.max(0, 100 - count * 10), label: String(key) } as any;
   }
 
+  const safeAutofixes = report.files.reduce((sum, f) => sum + f.messages.filter(m => m.fixable).length, 0);
+  const highImpactIssues = report.files.reduce((sum, f) => sum + f.messages.filter(m => m.severity === 2).length, 0);
+
   const priorities = [] as HealthReport["priorities"];
   if (report.summary.errors > 0) {
     priorities.push({ label: "Fix errors", detail: `${report.summary.errors} errors detected`, impact: "high" });
+  }
+  if (safeAutofixes > 0) {
+    priorities.push({ label: "Apply autofixes", detail: `${safeAutofixes} issues can be auto-fixed`, impact: "medium" });
+  }
+  if (report.summary.warnings > 0) {
+    priorities.push({ label: "Address warnings", detail: `${report.summary.warnings} warnings to review`, impact: "medium" });
+  }
+  const categoriesWithIssues = Object.entries(categories).filter(([, c]) => c.count > 0).sort(([, a], [, b]) => b.count - a.count);
+  for (const [cat, info] of categoriesWithIssues) {
+    priorities.push({ label: `Improve ${cat}`, detail: `${info.count} issues in ${cat}`, impact: info.score < 70 ? "high" : "low" });
   }
 
   const hotspots = buildHotspots(report, 10);
@@ -66,8 +79,8 @@ export function buildHealthReport(report: ScanReport, images: { file: string; si
       errors: report.summary.errors,
       warnings: report.summary.warnings,
       filesWithIssues: report.summary.filesWithIssues,
-      safeAutofixes: 0,
-      highImpactIssues: 0,
+      safeAutofixes,
+      highImpactIssues,
       images: images.length,
       imageBytes: images.reduce((s, i) => s + i.size, 0)
     },
@@ -80,7 +93,6 @@ export function buildHealthReport(report: ScanReport, images: { file: string; si
 export function buildMarkdownSummary(report: ScanReport, title = "Scan Report") {
   const lines = [] as string[];
   lines.push(`# ${title}`);
-  lines.push(`Generated: ${report.generatedAt}`);
   lines.push(`Score: ${report.summary.score}/100`);
   lines.push("");
   for (const file of report.files.slice(0, 20)) {

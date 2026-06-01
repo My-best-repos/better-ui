@@ -1,0 +1,163 @@
+import chalk from "chalk";
+
+type RelatedEntry = {
+  command: string;
+  description: string;
+};
+
+function intentLabel(command: string) {
+  if (command.includes("fix")) return "Repair";
+  if (command.includes("review") || command.includes("pr-summary")) return "Ship";
+  if (command.includes("images")) return "Optimize";
+  if (command.includes("menu") || command.includes("commands") || command.includes("advanced")) return "Navigate";
+  return "Inspect";
+}
+
+const DEFAULT_RELATED: RelatedEntry[] = [
+  { command: "/scan", description: "Run a full project scan" },
+  { command: "/commands", description: "Browse the full command catalog" },
+  { command: "/advanced", description: "See flags and power-user flows" }
+];
+
+const RELATED_COMMANDS: Record<string, RelatedEntry[]> = {
+  "scan": [
+    { command: "/health", description: "Category scores and priorities" },
+    { command: "/fix", description: "Preview or apply autofixes" },
+    { command: "/hotspots", description: "Worst files by issue density" },
+    { command: "/compare", description: "Diff against last snapshot" }
+  ],
+  "scan-changed": [
+    { command: "/review --changed", description: "Review only modified files" },
+    { command: "/fix --changed", description: "Preview fixes for modified files" },
+    { command: "/pr-summary", description: "Draft a PR summary from changes" },
+    { command: "/compare", description: "Compare current state vs snapshot" }
+  ],
+  "scan-staged": [
+    { command: "/review --staged", description: "Review only staged files" },
+    { command: "/fix --staged", description: "Preview fixes for staged files" },
+    { command: "/pr-summary --staged", description: "Draft summary for staged work" },
+    { command: "/compare", description: "Compare current state vs snapshot" }
+  ],
+  "fix-preview": [
+    { command: "/fix --apply", description: "Write the safe autofixes" },
+    { command: "/fix --interactive", description: "Pick hunks one by one" },
+    { command: "/review --changed", description: "Review current diff before commit" },
+    { command: "/scan", description: "Re-scan the project after review" }
+  ],
+  "fix-apply": [
+    { command: "/scan", description: "Measure the new score" },
+    { command: "/compare", description: "See what improved vs snapshot" },
+    { command: "/review --changed", description: "Review the written changes" },
+    { command: "/pr-summary", description: "Summarize the updated branch" }
+  ],
+  "fix-interactive": [
+    { command: "/fix --apply", description: "Apply all remaining safe fixes" },
+    { command: "/scan", description: "Re-scan after selected hunks" },
+    { command: "/review --changed", description: "Review the chosen edits" },
+    { command: "/compare", description: "Check delta vs last snapshot" }
+  ],
+  "doctor": [
+    { command: "/init", description: "Generate or refresh config" },
+    { command: "/health", description: "See issue categories and priorities" },
+    { command: "/scan", description: "Run a full scan after setup fixes" },
+    { command: "/deps", description: "Inspect dependency weight and dead code" }
+  ],
+  "health": [
+    { command: "/doctor", description: "Inspect config and script gaps" },
+    { command: "/hotspots", description: "Focus the riskiest files first" },
+    { command: "/fix", description: "Preview autofixes for health issues" },
+    { command: "/images", description: "Inspect image payload weight" }
+  ],
+  "deps": [
+    { command: "/doctor", description: "Check project readiness after cleanup" },
+    { command: "/scan", description: "Run a full quality scan" },
+    { command: "/health", description: "See dependency impact in the score" },
+    { command: "/advanced", description: "Review more high-leverage flows" }
+  ],
+  "advanced": [
+    { command: "/commands", description: "Browse every slash command" },
+    { command: "/scan", description: "Run the main analysis flow" },
+    { command: "/menu", description: "Open the interactive command center" },
+    { command: "/images --generate", description: "Optimize large assets" }
+  ],
+  "hotspots": [
+    { command: "/fix", description: "Preview fixes in risky files" },
+    { command: "/explain", description: "Understand the highest-impact rules" },
+    { command: "/health", description: "See category-level priorities" },
+    { command: "/review --changed", description: "Prepare a review after cleanup" }
+  ],
+  "review": [
+    { command: "/pr-summary", description: "Draft the PR body from findings" },
+    { command: "/fix", description: "Address issues before committing" },
+    { command: "/compare", description: "Measure branch impact vs snapshot" },
+    { command: "/scan", description: "Run a full scan outside git scope" }
+  ],
+  "review-changed": [
+    { command: "/fix --changed", description: "Preview fixes only for current diff" },
+    { command: "/pr-summary", description: "Turn the diff into PR markdown" },
+    { command: "/compare", description: "Measure branch impact vs snapshot" },
+    { command: "/scan --changed", description: "Re-scan only changed files" }
+  ],
+  "review-staged": [
+    { command: "/fix --staged", description: "Preview fixes only for staged files" },
+    { command: "/pr-summary --staged", description: "Summarize staged work" },
+    { command: "/compare", description: "Measure staged impact vs snapshot" },
+    { command: "/scan --staged", description: "Re-scan only staged files" }
+  ],
+  "pr-summary": [
+    { command: "/review --changed", description: "Generate a review-style companion" },
+    { command: "/compare", description: "Show snapshot delta in the branch" },
+    { command: "/scan", description: "Rebuild the report after edits" },
+    { command: "/commands", description: "Browse more automation flows" }
+  ],
+  "check-accessibility": [
+    { command: "/explain", description: "See why the a11y rules matter" },
+    { command: "/fix", description: "Preview safe fixes in the same scope" },
+    { command: "/health", description: "Check accessibility score impact" },
+    { command: "/review --changed", description: "Review the current accessibility diff" }
+  ],
+  "compare": [
+    { command: "/hotspots", description: "Focus the biggest remaining files" },
+    { command: "/review --changed", description: "Review the current diff" },
+    { command: "/pr-summary", description: "Summarize the branch impact" },
+    { command: "/scan", description: "Run a fresh full scan" }
+  ],
+  "explain": [
+    { command: "/fix", description: "Preview fixes for explained issues" },
+    { command: "/health", description: "See category impact of the rules" },
+    { command: "/review --changed", description: "Review the files after edits" },
+    { command: "/scan", description: "Re-scan after applying changes" }
+  ],
+  "images": [
+    { command: "/images --generate", description: "Create WebP versions" },
+    { command: "/scan --scan-images", description: "Include images in project scan" },
+    { command: "/health", description: "See image payload in health score" },
+    { command: "/doctor", description: "Check wider project readiness" }
+  ],
+  "images-generate": [
+    { command: "/compare", description: "Measure the new project state" },
+    { command: "/scan --scan-images", description: "Re-scan image payload" },
+    { command: "/health", description: "See updated image weight impact" },
+    { command: "/review --changed", description: "Review generated assets" }
+  ],
+  "init": [
+    { command: "/scan", description: "Generate the first report" },
+    { command: "/doctor", description: "Validate config and scripts" },
+    { command: "/health", description: "Check the initial score" },
+    { command: "/menu", description: "Open the interactive dashboard" }
+  ],
+  "commands": [
+    { command: "/advanced", description: "See high-leverage flags and flows" },
+    { command: "/scan", description: "Run the main analysis command" },
+    { command: "/menu", description: "Use the interactive command center" },
+    { command: "/review --changed", description: "Open a review-oriented branch flow" }
+  ]
+};
+
+export function formatRelatedCommands(key: string): string[] {
+  const entries = RELATED_COMMANDS[key] || DEFAULT_RELATED;
+  return entries.map(({ command, description }) => {
+    const badge = chalk.cyan(`[${intentLabel(command).padEnd(8)}]`);
+    return `${chalk.bold(command.padEnd(22))} ${badge} ${chalk.dim(description)}`;
+  });
+}

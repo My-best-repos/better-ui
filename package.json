@@ -4,6 +4,14 @@
   "private": false,
   "description": "Open source terminal command center for frontend scanning, review, and safe fixes",
   "packageManager": "pnpm@11.4.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davidalarcondev/better-ui.git"
+  },
+  "homepage": "https://github.com/davidalarcondev/better-ui#readme",
+  "bugs": {
+    "url": "https://github.com/davidalarcondev/better-ui/issues"
+  },
   "main": "dist/src/cli.js",
   "files": [
     "bin",

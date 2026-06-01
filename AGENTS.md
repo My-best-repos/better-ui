@@ -70,7 +70,8 @@ Where to modify code depending on the change type
 - Distribution and install flow: `docs/distribution-and-installation.md` documents the supported binary entrypoint and publish expectations.
 - Testing and CI: `docs/testing-and-ci.md` documents the expected local verification and package checks.
 - Dependency Scanner: `docs/dependency-scanner.md` documents how the unused/heavy dependency analysis works.
-- Advanced Commands: `docs/advanced-commands.md` documents flags, the TUI followup menu, and the `/advanced` catalog.
+- Advanced Commands: `docs/advanced-commands.md` documents flags, the TUI post-command prompt flow, and the `/advanced` catalog.
+- Technology Stack: `docs/technology-stack.md` documents the main runtime, CLI/TUI, linting, and testing technologies used by the project.
 
 Quick verification commands
 

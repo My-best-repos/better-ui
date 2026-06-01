@@ -4,6 +4,15 @@
 
 `better-ui` is an open source local frontend command center for scanning projects, scoring health, reviewing changed files, spotting hotspots, and optimizing images from the terminal.
 
+![Node.js](https://img.shields.io/badge/Node.js-22%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![pnpm](https://img.shields.io/badge/pnpm-11-F69220?style=for-the-badge&logo=pnpm&logoColor=white)
+![Commander](https://img.shields.io/badge/Commander-CLI-111111?style=for-the-badge)
+![Enquirer](https://img.shields.io/badge/Enquirer-TUI-7C3AED?style=for-the-badge)
+![ESLint](https://img.shields.io/badge/ESLint-10-4B32C3?style=for-the-badge&logo=eslint&logoColor=white)
+![Sharp](https://img.shields.io/badge/Sharp-Images-99CC00?style=for-the-badge)
+![Vitest](https://img.shields.io/badge/Vitest-Tests-6E9F18?style=for-the-badge&logo=vitest&logoColor=white)
+
 The repository and product name are `better-ui`. The published npm package and executable are `better-ui-cli`.
 
 It supports direct slash commands such as `better-ui-cli /scan`, `better-ui-cli /health`, and `better-ui-cli /menu`, plus a richer TUI designed around a modern dashboard-and-command-palette workflow.
@@ -20,6 +29,7 @@ All repository documentation is in English. The detailed sections referenced fro
 - Security notes: `docs/security-notes.md`
 - Advanced commands: `docs/advanced-commands.md`
 - Dependency scanner: `docs/dependency-scanner.md`
+- Technology stack: `docs/technology-stack.md`
 
 The goal is to make `better-ui` broadly useful for frontend developers while staying honest about current limits and keeping the core tool local-first and reviewable.
 
@@ -29,7 +39,7 @@ The goal is to make `better-ui` broadly useful for frontend developers while sta
 - **Dependency Scanner (`/deps`):** Instantly finds dead code (unused dependencies) and heavy libraries bloating your `node_modules`.
 - **Advanced Grid TUI:** A borderless, side-by-side terminal dashboard for a native app feel.
 - **Pro-tips built-in (`/advanced`):** An in-app cheat sheet for advanced git flows, interactive fixes, and supercharged scans.
-- **Interactive Follow-ups:** After running a scan in the TUI, seamlessly chain into interactive fixes or PR reviews without typing another command.
+- **Run Summaries and Next Moves:** Scan keeps its detailed summary, while other commands open with a compact run summary and focused next-step guidance.
 
 ## Core Features
 
@@ -46,6 +56,31 @@ The goal is to make `better-ui` broadly useful for frontend developers while sta
 - Scans images and can generate `.webp` variants.
 - Scans dependencies to find unused packages and heavy libraries.
 - Exposes every major flow through both CLI commands and slash commands.
+
+## Built With
+
+<table>
+  <tr>
+    <td><strong>Runtime</strong><br><code>Node.js 22+</code></td>
+    <td><strong>Language</strong><br><code>TypeScript 6</code></td>
+    <td><strong>Package Manager</strong><br><code>pnpm 11</code></td>
+  </tr>
+  <tr>
+    <td><strong>CLI</strong><br><code>commander</code></td>
+    <td><strong>TUI Prompts</strong><br><code>enquirer</code></td>
+    <td><strong>Styling</strong><br><code>chalk</code> + <code>cli-table3</code></td>
+  </tr>
+  <tr>
+    <td><strong>Linting</strong><br><code>eslint</code></td>
+    <td><strong>TS Rules</strong><br><code>@typescript-eslint/*</code></td>
+    <td><strong>Images</strong><br><code>sharp</code></td>
+  </tr>
+  <tr>
+    <td><strong>Testing</strong><br><code>vitest</code></td>
+    <td><strong>Output</strong><br>JSON, Markdown, HTML, TUI</td>
+    <td><strong>Details</strong><br><code>docs/technology-stack.md</code></td>
+  </tr>
+</table>
 
 ## Main workflows
 
@@ -183,7 +218,7 @@ When the current directory is a git repository, `better-ui-cli` can scope work t
 When the TUI starts, it renders a modern grid dashboard showing your stack and active git branch.
 The command center is prompt-first: you type slash commands directly, and `Ctrl+Shift+S` opens a selectable command palette.
 
-Every primary action exposed in the TUI has a slash-command equivalent. After running commands like `/scan`, a contextual follow-up menu will let you chain commands without retyping.
+Every primary action exposed in the TUI has a slash-command equivalent. After running commands like `/scan`, the TUI returns to the normal pause prompt so you can press `/` to type the next command or `a` to go back to the dashboard. Non-scan commands begin with a compact `Run Summary` block, use a cleaner timestamp format, and show human-readable durations like `842 ms`, `1.4 s`, or `2m 03s`. The detailed `Scan Summary` block stays reserved for `/scan`, including the richer-workflows hint and the score bar directly under the score line. Other commands keep only the focused output they actually need. They also include a sharper `Next Best Moves` panel, while invalid commands only show the closest supported matches instead of generic follow-up suggestions. The dashboard also shows popular flows and keyboard shortcuts.
 
 ## Configuration
 

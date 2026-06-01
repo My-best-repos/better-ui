@@ -16,7 +16,7 @@ import { printSummary } from "../reporters/terminalReporter";
 import { scanDependencies } from "../scanners/dependencyScanner";
 import { generateWebP, scanImages } from "../scanners/imageScanner";
 import { parseSlashCommand } from "../slashCommands";
-import { printBanner, printPanel, printGrid } from "../terminalUi";
+import { printBanner, printPanel, printGrid, formatDelta, formatElapsed, formatTimestamp, printRunSummary } from "../terminalUi";
 import {
   applyInteractiveHunkSelection,
   runAccessibilityWorkflow,
@@ -30,10 +30,120 @@ import {
   runReviewWorkflow,
   runScanWorkflow
 } from "../cli/workflows";
+import { formatRelatedCommands } from "../relatedCommands";
 
-// presentFollowupMenu returns a command string when the user selects a follow-up
-// to execute. The main loop will then run that command and avoid clearing the
-// screen so the command output remains visible.
+const altMap: Record<string, string> = {
+  "lodash": "native Array/Map/Set methods or radashi",
+  "moment": "Day.js (2kB) or date-fns",
+  "moment-timezone": "Day.js + utc plugin (2kB)",
+  "rxjs": "native async/await + AbortController",
+  "three": "you may actually need this — if not, try regl or twgl",
+  "echarts": "Chart.js (1/3 the size) or uPlot",
+  "d3": "d3-selection only instead of full d3"
+};
+
+function categoryRecommendations(category: string): string[] {
+  const recs: Record<string, string[]> = {
+    "maintainability": ["Split large files into smaller modules", "Extract repeated logic into shared utilities", "Use consistent file naming conventions"],
+    "accessibility": ["Add aria-* attributes to interactive elements", "Ensure sufficient color contrast", "Add keyboard navigation support", "Use semantic HTML elements"],
+    "performance": ["Optimize and compress images", "Lazy-load heavy components", "Tree-shake unused exports", "Avoid unnecessary re-renders"],
+    "code-quality": ["Remove unused variables and imports", "Use strict equality (===) over loose (==)", "Add JSDoc/TSDoc to public APIs", "Fix console.log statements"],
+    "correctness": ["Fix all errors before deployment", "Add proper error boundaries", "Validate edge cases in conditionals"],
+    "dx": ["Standardize import paths with aliases", "Add pre-commit hooks for linting", "Create consistent component patterns"]
+  };
+  return recs[category] || [];
+}
+
+function printRelatedCommands(key: string) {
+  printPanel("Next Best Moves", formatRelatedCommands(key), "cyan");
+}
+
+function normalizeCommandText(value: string) {
+  return value.toLowerCase().replace(/^\//, "");
+}
+
+function suggestCommands(input: string, limit = 4) {
+  const query = normalizeCommandText(input).trim();
+  if (!query) {
+    return ["/scan", "/health", "/fix --interactive", "/commands"];
+  }
+
+  const ranked = COMMANDS
+    .map((command) => {
+      const slash = normalizeCommandText(command.slash);
+      const name = normalizeCommandText(command.name);
+      let score = 0;
+      if (slash === query || name === query) score += 10;
+      if (slash.startsWith(query) || name.startsWith(query)) score += 6;
+      if (slash.includes(query) || name.includes(query)) score += 3;
+      return { slash: command.slash, score };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  return [...new Set(ranked.map((entry) => entry.slash))].slice(0, limit);
+}
+
+function printCommandSuggestions(input: string, title = "Suggested Commands") {
+  const suggestions = suggestCommands(input);
+  if (suggestions.length === 0) return;
+  printPanel(title, suggestions.map((command) => `${chalk.bold(command)} ${chalk.dim("Try this next")}`), "cyan");
+}
+
+function resolveCommandVariant(tokens: string[]) {
+  const [command] = tokens;
+  if (command === "scan") {
+    if (readFlag(tokens, "--changed")) return "scan-changed";
+    if (readFlag(tokens, "--staged")) return "scan-staged";
+    return "scan";
+  }
+  if (command === "fix") {
+    if (readFlag(tokens, "--interactive")) return "fix-interactive";
+    if (readFlag(tokens, "--apply")) return "fix-apply";
+    return "fix-preview";
+  }
+  if (command === "review") {
+    if (readFlag(tokens, "--changed")) return "review-changed";
+    if (readFlag(tokens, "--staged")) return "review-staged";
+    return "review";
+  }
+  if (command === "images") {
+    return readFlag(tokens, "--generate") ? "images-generate" : "images";
+  }
+  return command;
+}
+
+const COMMAND_HEADLINES: Record<string, { title: string; tone: string; color: "magenta" | "cyan" | "yellow" | "green" | "blue" | "red" }> = {
+  "scan": { title: "Scan Mission", tone: "Full sweep running. Use this as the baseline for quality, risk, and fixability.", color: "cyan" },
+  "scan-changed": { title: "Change Lens", tone: "Focused on the files you are actively moving. Fast feedback, less noise.", color: "cyan" },
+  "scan-staged": { title: "Commit Gate", tone: "Only staged work is under inspection. Ideal right before commit or PR.", color: "cyan" },
+  "fix-preview": { title: "Repair Preview", tone: "Nothing is written yet. Review the safe fixes before you commit to them.", color: "yellow" },
+  "fix-apply": { title: "Repair Pass", tone: "Safe fixes are being written. Re-scan afterwards to prove the improvement.", color: "green" },
+  "fix-interactive": { title: "Surgical Fix Mode", tone: "Choose hunks carefully. Precision beats bulk changes in legacy code.", color: "green" },
+  "doctor": { title: "Project Readiness", tone: "Configuration, scripts, and foundations first. Build on solid ground.", color: "magenta" },
+  "health": { title: "Health Brief", tone: "This is the strategic view: category scores, pressure points, and next priorities.", color: "blue" },
+  "deps": { title: "Dependency Audit", tone: "Trim dead weight, spot oversized packages, and keep the frontend lean.", color: "yellow" },
+  "advanced": { title: "Operator Guide", tone: "High-leverage flags and faster workflows for people who want the sharp tools.", color: "magenta" },
+  "hotspots": { title: "Priority Queue", tone: "These files are your leverage points. Fix them first to move the score fastest.", color: "red" },
+  "review": { title: "Review Desk", tone: "A branch-level quality readout designed for review conversations, not just raw lint output.", color: "cyan" },
+  "review-changed": { title: "Diff Review", tone: "Only the modified files are in frame. Good for PR shaping and final checks.", color: "cyan" },
+  "review-staged": { title: "Staged Review", tone: "This is the exact commit candidate. Treat it like a release slice.", color: "cyan" },
+  "pr-summary": { title: "Release Narrative", tone: "Translate technical findings into a clean story the reviewer can trust.", color: "magenta" },
+  "check-accessibility": { title: "Accessibility Pass", tone: "Accessibility is not decoration. This pass isolates barriers before they ship.", color: "blue" },
+  "compare": { title: "Delta Brief", tone: "Progress only counts when you can measure it. Compare now against the saved baseline.", color: "green" },
+  "explain": { title: "Rule Translator", tone: "Turn raw findings into intent, impact, and the shortest correct fix.", color: "yellow" },
+  "images": { title: "Asset Pass", tone: "Image weight is frontend performance. Audit the payload before it hurts users.", color: "blue" },
+  "images-generate": { title: "Asset Optimization", tone: "Compression is being turned into concrete bytes saved, not just good intentions.", color: "green" },
+  "init": { title: "Setup Concierge", tone: "Bootstrapping the project so the rest of the toolchain has something solid to stand on.", color: "green" },
+  "commands": { title: "Command Index", tone: "This is the operating surface. Know the tools, then move with intent.", color: "magenta" }
+};
+
+function printCommandHeadline(key: string) {
+  const entry = COMMAND_HEADLINES[key];
+  if (!entry) return;
+  printPanel(entry.title, [entry.tone], entry.color);
+}
+
 let forceFreshDashboard = false;
 
 async function promptCustomCommand() {
@@ -46,7 +156,6 @@ async function promptCustomCommand() {
 
   let interceptedA = false;
   inputPrompt.on("keypress", (ch: string, key: any) => {
-    // If the user presses 'a' and the input is empty or just '/', cancel and go back
     if ((ch === "a" || (key && key.name === "a")) && (inputPrompt.input === "" || inputPrompt.input === "/")) {
       interceptedA = true;
       inputPrompt.cancel();
@@ -62,7 +171,7 @@ async function promptCustomCommand() {
     return answer;
   } catch {
     forceFreshDashboard = true;
-    return null; // Cancelled
+    return null;
   }
 }
 
@@ -84,7 +193,7 @@ async function pause(message = "Press 'a' to return to the main menu, or '/' to 
       } else if (key === "/") {
         stdin.off("data", onData);
         if (stdin.isTTY) stdin.setRawMode(wasRaw);
-        resolve("/");
+        resolve(key);
       }
     };
 
@@ -100,81 +209,6 @@ async function pause(message = "Press 'a' to return to the main menu, or '/' to 
   // If '/' was pressed, prompt the user for a command using Enquirer
   console.log();
   return await promptCustomCommand();
-}
-
-async function presentFollowupMenu(cwd: string, followups: Array<{ name: string; message: string; value: string | null }>) {
-  let current = followups || [];
-  while (true) {
-    const followupChoices = [
-      { name: "return-dashboard", message: "Return to main menu (press 'a')", value: null },
-      { name: "custom-command", message: "Type another command (press '/')", value: "custom" },
-      ...current.map(f => ({ name: f.name, message: f.message, value: f.value }))
-    ];
-
-    try {
-      const selectPrompt = new (Enquirer as any).Select({
-        name: "follow",
-        message: "Choose an action. Press 'a' for the main menu or '/' for another command:",
-        choices: followupChoices
-      });
-
-      let interceptedAction: string | null = null;
-      selectPrompt.on("keypress", (ch: string, key: any) => {
-        if (ch === "a" || (key && key.name === "a")) {
-          interceptedAction = "a";
-          selectPrompt.submit(); // Force submission to break out
-        } else if (ch === "/" || (key && key.name === "/")) {
-          interceptedAction = "/";
-          selectPrompt.submit();
-        }
-      });
-
-      const selectedResult = await selectPrompt.run();
-
-      // Enquirer returns the choice's `value` by default, but older code assumed
-      // it returned the `name`. Match either one so we handle both shapes.
-      const selectedChoice = followupChoices.find(c => c.name === selectedResult || c.value === selectedResult);
-
-      // Honor intercepted shortcuts first
-      if (interceptedAction === "a") {
-        forceFreshDashboard = true;
-        return null;
-      }
-      if (interceptedAction === "/") {
-        console.log();
-        return await promptCustomCommand();
-      }
-
-      // If the user explicitly chose the "return-dashboard" or "custom-command" items
-      // the selectedChoice will be present; handle them by name to keep behaviour stable.
-      if (selectedChoice && selectedChoice.name === "return-dashboard") {
-        forceFreshDashboard = true;
-        return null;
-      }
-      if (selectedChoice && selectedChoice.name === "custom-command") {
-        console.log();
-        return await promptCustomCommand();
-      }
-
-      const cmd = selectedChoice ? selectedChoice.value : null;
-      if (!cmd) break;
-
-      // Return the selected follow-up command to the caller (runTui). The main
-      // loop will execute it and intentionally avoid clearing the screen so
-      // the command's output remains visible to the user.
-      return cmd as string;
-    } catch (err) {
-      if (isPromptCloseError(err) || (err === "")) {
-        hardClear();
-        console.log(chalk.dim("Leaving better-ui. Bye see you soon 😊"));
-        process.exit(0);
-      }
-      console.error("Error running subcommand:", err);
-      break;
-    }
-  }
-
-  return null;
 }
 
 function hardClear() {
@@ -228,6 +262,25 @@ async function showCommandPalette() {
       }
     });
 
+    const originalUp = palettePrompt.up.bind(palettePrompt);
+    const originalDown = palettePrompt.down.bind(palettePrompt);
+
+    palettePrompt.up = function() {
+      const firstVisible = this.visible[0];
+      if (this.index === 0 && firstVisible?.name === "/scan") {
+        return this.alert();
+      }
+      return originalUp();
+    };
+
+    palettePrompt.down = function() {
+      const lastVisible = this.visible[this.visible.length - 1];
+      if (this.index === this.visible.length - 1 && lastVisible?.name === "/exit") {
+        return this.alert();
+      }
+      return originalDown();
+    };
+
     let interceptedA = false;
     palettePrompt.on("keypress", (ch: string, key: any) => {
       if ((ch === "a" || (key && key.name === "a")) && !palettePrompt.input) {
@@ -258,11 +311,17 @@ function readOption(tokens: string[], option: string) {
 async function _runSlashCommand(cwd: string, input: string) {
   const tokens = parseSlashCommand(input);
   if (!tokens || tokens.length === 0) {
-    printPanel("Slash Command", ["Command not recognized. Try /help or /menu."], "yellow");
+    printPanel("Slash Command", ["Command not recognized. Try /commands or /menu."], "yellow");
+    printCommandSuggestions(input, "Closest Matches");
     return { shouldExit: false };
   }
 
   const [command] = tokens;
+  const variant = resolveCommandVariant(tokens);
+
+  if (command !== "commands" && command !== "tui" && command !== "exit") {
+    printCommandHeadline(variant);
+  }
 
   if (command === "scan") {
     const start = Date.now();
@@ -314,13 +373,33 @@ async function _runSlashCommand(cwd: string, input: string) {
       `${chalk.cyan("Saved report:")} ${result.reportPath ? result.reportPath : "(not written)"}`,
       `${chalk.cyan("History snapshot:")} ${result.snapshotPath ? result.snapshotPath : "disabled"}`,
       `${chalk.cyan("Report size:")} ${reportSizeText}`,
-      `${chalk.cyan("Duration:")} ${(durationMs / 1000).toFixed(2)}s`,
+      `${chalk.cyan("Duration:")} ${formatElapsed(durationMs)}`,
       `${chalk.cyan("Files with issues:")} ${result.report.summary.filesWithIssues}`,
       `${chalk.cyan("Total issues:")} ${result.report.summary.totalIssues}`,
       `${chalk.cyan("Autofixable issues:")} ${fixableCount}`
     ], "cyan");
 
-    printPanel("Category Breakdown", categories.length > 0 ? categories.map(([name, count]) => `${chalk.cyan(String(name) + ":")} ${String(count)}`) : ["No categorized issues detected."], "blue");
+    if (categories.length > 0) {
+      for (const [catName, count] of categories) {
+        const catFiles = result.report.files
+          .map(f => ({ filePath: f.filePath, messages: f.messages.filter((m: any) => (m.category || "maintainability") === catName) }))
+          .filter(f => f.messages.length > 0);
+        if (catFiles.length === 0) continue;
+        const catLines: string[] = [`${chalk.cyan("Issues:")} ${String(count)}`];
+        for (const cf of catFiles) {
+          for (const msg of cf.messages) {
+            const loc = msg.line !== null ? chalk.gray(`:${msg.line}${msg.column !== null ? `:${msg.column}` : ""}`) : "";
+            const rule = msg.ruleId ? chalk.cyan(msg.ruleId) : "";
+            const text = msg.message.length > 100 ? msg.message.slice(0, 100) + "…" : msg.message;
+            catLines.push(`  ${chalk.white(cf.filePath)}${loc}  ${rule}  ${chalk.dim(text)}`);
+          }
+        }
+        const titleStr = String(catName).charAt(0).toUpperCase() + String(catName).slice(1);
+        printPanel(titleStr, catLines, "blue");
+      }
+    } else {
+      printPanel("Category Breakdown", ["No categorized issues detected."], "blue");
+    }
 
     printPanel("Hotspots", hotspots.length > 0 ? hotspots.map(h => `${h.filePath}  score=${h.score}  errors=${h.errors}  warnings=${h.warnings}`) : ["No hotspots found."], "red");
 
@@ -340,65 +419,13 @@ async function _runSlashCommand(cwd: string, input: string) {
       }
     }
 
-    // Show available flags and follow-up subcommands in the TUI for the user
-    const flagLines = [
-      "--out <file>    : Report file path (json|md|html)",
-      "--format <fmt>  : json, markdown, or html",
-      "--scan-images   : Also run image inventory",
-      "--skip-history  : Do not save a snapshot to .better-ui/history",
-      "--top <n>       : Number of hotspots to display (default 5)",
-      "--open          : Open HTML report after generation",
-      "--verbose       : Show extended output (paths)"
-    ];
-    printPanel("Scan Flags", flagLines, "cyan");
+    // Related commands
+    printRelatedCommands(readFlag(tokens, "--changed") ? "scan-changed" : readFlag(tokens, "--staged") ? "scan-staged" : "scan");
 
-    const followups = [
-      "/fix --interactive    : Preview autofixes and pick hunks",
-      "/fix --apply          : Apply all ESLint autofixes",
-      "/review --changed     : Generate PR-style review for modified files",
-      "/pr-summary --out pr-summary.md : Generate PR summary markdown",
-      "/compare              : Compare with last saved snapshot",
-      "/health               : Show health score and category breakdown",
-      "/doctor               : Run project doctor checks",
-      "/images --generate    : Generate WebP variants for images",
-      "/explain <file|report>: Explain findings and suggested fixes"
-    ];
-    printPanel("Suggested Follow-up Commands", followups, "green");
-
-    // Build follow-up subcommands (do not run them here). These will be offered
-    // to the user as an alternative to pressing Enter when pausing the TUI.
-    const baseCmd = "/" + tokens.join(" ");
-    const choices: Array<{ name: string; message: string; value: string | null }> = [];
-
-    // Re-run scan variants
-    if (!readFlag(tokens, "--scan-images")) {
-      choices.push({ name: "rerun-images", message: "Re-run scan with images (--scan-images)", value: baseCmd + " --scan-images" });
-    }
-    if (!readFlag(tokens, "--skip-history")) {
-      choices.push({ name: "rerun-skip", message: "Re-run scan skipping history (--skip-history)", value: baseCmd + " --skip-history" });
-    }
-    if ((readOption(tokens, "--format") || "") !== "html") {
-      choices.push({ name: "rerun-html", message: "Re-run and generate HTML and open (--format html --open)", value: baseCmd + " --format html --open" });
-    }
-    choices.push({ name: "rerun-top10", message: "Re-run scan with top=10 (--top 10)", value: baseCmd + " --top 10" });
-
-    // Common follow-ups
-    choices.push({ name: "fix-interactive", message: "Preview autofixes and pick hunks (/fix --interactive)", value: "/fix --interactive" });
-    choices.push({ name: "fix-apply", message: "Apply all autofixes (/fix --apply)", value: "/fix --apply" });
-    choices.push({ name: "review-changed", message: "Generate PR-style review for changed files (/review --changed)", value: "/review --changed --out review.md" });
-    choices.push({ name: "pr-summary", message: "Generate PR summary (/pr-summary --out pr-summary.md)", value: "/pr-summary --out pr-summary.md" });
-    choices.push({ name: "compare", message: "Compare with last snapshot (/compare)", value: "/compare" });
-    choices.push({ name: "health", message: "Show health and priorities (/health)", value: "/health" });
-    choices.push({ name: "doctor", message: "Run project doctor checks (/doctor)", value: "/doctor" });
-    choices.push({ name: "images-generate", message: "Generate WebP for images (/images --generate)", value: "/images --generate" });
-    choices.push({ name: "explain-report", message: "Explain current report (/explain)", value: "/explain " + (result.reportPath || "") });
-
-    // Return followups to the caller so the TUI can present them as an optional
-    // action under the pause prompt (instead of forcing them immediately).
-    return { shouldExit: false, followups: choices } as any;
+    return { shouldExit: false };
   }
 
-  if (command === "fix") {
+    if (command === "fix") {
     if (readFlag(tokens, "--interactive")) {
       const interactive = await runInteractiveFixWorkflow(cwd, {
         changed: readFlag(tokens, "--changed"),
@@ -406,6 +433,7 @@ async function _runSlashCommand(cwd: string, input: string) {
       });
       if (interactive.previews.length === 0) {
         printPanel("Interactive Fix", ["No autofixes are available for this scope."], "green");
+        printRelatedCommands("fix-interactive");
         return { shouldExit: false };
       }
       const selection: any = await prompt({
@@ -420,6 +448,7 @@ async function _runSlashCommand(cwd: string, input: string) {
       const selectedHunks = (selection.hunks || []) as string[];
       if (selectedHunks.length === 0) {
         printPanel("Interactive Fix", ["No diff blocks were selected."], "yellow");
+        printRelatedCommands("fix-interactive");
         return { shouldExit: false };
       }
       printPanel("Selected Diff Preview", interactive.previews.flatMap(preview => preview.hunks.filter(hunk => selectedHunks.includes(hunk.id)).flatMap(hunk => [hunk.label, ...hunk.preview.slice(0, 4)])).slice(0, 24), "cyan");
@@ -431,17 +460,31 @@ async function _runSlashCommand(cwd: string, input: string) {
       } as any);
       if (!confirm.approved) {
         printPanel("Interactive Fix", ["Cancelled before writing changes."], "yellow");
+        printRelatedCommands("fix-interactive");
         return { shouldExit: false };
       }
       const report = await applyInteractiveHunkSelection(cwd, interactive.previews, selectedHunks, {
         changed: readFlag(tokens, "--changed"),
         staged: readFlag(tokens, "--staged")
       });
+      const touchedFiles = [...new Set(interactive.previews.filter(preview => preview.hunks.some(hunk => selectedHunks.includes(hunk.id))).map(preview => preview.filePath))];
+      const fixParts: string[] = [];
+      for (const tf of touchedFiles) {
+        const fileAfter = report.files.find(f => f.filePath === tf);
+        if (fileAfter) {
+          fixParts.push(`  ${chalk.white(tf)}  ${chalk.red(String(fileAfter.errorCount))} errors, ${chalk.yellow(String(fileAfter.warningCount))} warnings`);
+        }
+      }
       printPanel("Interactive Fix Applied", [
+        `${chalk.cyan("Files updated:")} ${touchedFiles.length}`,
         `${chalk.cyan("Blocks applied:")} ${selectedHunks.length}`,
         `${chalk.cyan("Remaining errors:")} ${report.summary.errors}`,
-        `${chalk.cyan("Remaining warnings:")} ${report.summary.warnings}`
+        `${chalk.cyan("Remaining warnings:")} ${report.summary.warnings}`,
+        `${chalk.cyan("Score:")} ${report.summary.score}/100`,
+        "",
+        ...fixParts
       ], "green");
+      printRelatedCommands("fix-interactive");
       return { shouldExit: false };
     }
 
@@ -450,52 +493,229 @@ async function _runSlashCommand(cwd: string, input: string) {
       changed: readFlag(tokens, "--changed"),
       staged: readFlag(tokens, "--staged")
     });
-    printPanel(result.preview ? "Fix Preview" : "Fix Applied", [
-      `${chalk.cyan("Scope:")} ${result.report.scope || "all"}`,
-      `${chalk.cyan("Errors:")} ${result.report.summary.errors}`,
-      `${chalk.cyan("Warnings:")} ${result.report.summary.warnings}`
-    ], result.preview ? "yellow" : "green");
+    if (result.preview) {
+      const fixableCount = result.report.files.reduce((sum, f) => sum + f.messages.filter(m => m.fixable).length, 0);
+      const fixableFiles = result.report.files.filter(f => f.messages.some(m => m.fixable)).length;
+      const previewLines = [
+        `${chalk.cyan("Scope:")} ${result.report.scope || "all"}`,
+        `${chalk.cyan("Autofixable:")} ${chalk.green(String(fixableCount))} issues in ${fixableFiles} file(s)`,
+        ""
+      ];
+      for (const file of result.report.files) {
+        const fixable = file.messages.filter(m => m.fixable);
+        if (fixable.length === 0) continue;
+        previewLines.push(`  ${chalk.white(file.filePath)}`);
+        for (const msg of fixable) {
+          const loc = msg.line !== null ? chalk.gray(`:${msg.line}${msg.column !== null ? `:${msg.column}` : ""}`) : "";
+          const rule = msg.ruleId ? chalk.cyan(msg.ruleId) : "";
+          previewLines.push(`    ${chalk.green("→")}${loc}  ${rule}  ${chalk.dim(msg.message.length > 90 ? msg.message.slice(0, 90) + "…" : msg.message)}`);
+        }
+      }
+      if (fixableCount === 0) {
+        previewLines.push("  " + chalk.dim("No autofixable issues detected in the current scope."));
+      }
+      previewLines.push("", chalk.dim("Re-run with --apply to write autofixes or --interactive for hunk-level selection."));
+      printPanel("Fix Preview", previewLines, "yellow");
+      printRelatedCommands("fix-preview");
+    } else {
+      const remaining = result.report.summary.errors + result.report.summary.warnings;
+      const fixedCount = result.report.files.reduce((sum, f) => sum + f.messages.filter(m => m.fixable).length, 0);
+      const fixedFiles = result.report.files.filter(f => f.messages.some(m => m.fixable)).length;
+      const fixResultLines = [
+        `${chalk.cyan("Remaining errors:")} ${chalk.red(String(result.report.summary.errors))}`,
+        `${chalk.cyan("Remaining warnings:")} ${chalk.yellow(String(result.report.summary.warnings))}`,
+        `${chalk.cyan("Score:")} ${result.report.summary.score}/100`,
+        remaining === 0 ? chalk.green("✓ All issues resolved!") : chalk.dim("Review the updated files before committing."),
+        "",
+        chalk.dim(`Files with remaining fixable issues: ${fixedFiles} (${fixedCount} issues)`)
+      ];
+      if (fixedFiles > 0) {
+        for (const file of result.report.files) {
+          const fixable = file.messages.filter(m => m.fixable);
+          if (fixable.length === 0) continue;
+          fixResultLines.push(`  ${chalk.white(file.filePath)}  ${chalk.dim("(" + fixable.length + " remaining)")}`);
+        }
+      }
+      printPanel("Fix Applied", fixResultLines, "green");
+      printRelatedCommands("fix-apply");
+    }
     return { shouldExit: false };
   }
 
   if (command === "doctor") {
     const result = await runDoctorWorkflow(cwd);
-    printPanel("Doctor Overview", [
-      `${chalk.cyan("Score:")} ${result.health.score}/100`,
-      `${chalk.cyan("Config completeness:")} ${result.doctor.configCompleteness}`,
-      `${chalk.cyan("Scripts present:")} ${result.doctor.scriptsPresent}/${result.doctor.scriptChecks}`
+    const pkg = JSON.parse(fs.readFileSync(path.join(cwd, "package.json"), "utf8")) as { name?: string; scripts?: Record<string, string>; dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+    const projectName = pkg.name || path.basename(cwd);
+
+    const cfgFields: Record<string, { recommended: string; hint: string }> = {
+      "projectName": { recommended: `"${projectName}"`, hint: "Used in report headers and metadata" },
+      "preset": { recommended: `"react", "next", "vite", "vue", "landing-page", "typescript-library"`, hint: "Enables preset-specific rules and defaults" },
+      "defaults.reportFile": { recommended: `"report.json"`, hint: "Default output path for scan reports" },
+      "defaults.extensions": { recommended: `[".js", ".jsx", ".ts", ".tsx"]`, hint: "File extensions the scanner will process" }
+    };
+    const cfgLines: string[] = [];
+    for (const [field, info] of Object.entries(cfgFields)) {
+      if (result.doctor.missingConfig.includes(field)) {
+        cfgLines.push(`  ${chalk.red("✗")} ${chalk.bold(field)}  ${chalk.dim("→ " + info.recommended)}`);
+        cfgLines.push(`    ${chalk.dim(info.hint)}`);
+      } else {
+        cfgLines.push(`  ${chalk.green("✓")} ${chalk.bold(field)}`);
+      }
+    }
+    if (cfgLines.length > 0) {
+      printPanel("Config Audit", cfgLines, "yellow");
+    }
+
+    const scriptLines: string[] = [];
+    const scriptChecks = ["better-ui:scan", "better-ui:fix", "better-ui:tui", "better-ui:health", "better-ui:doctor", "better-ui:a11y", "better-ui:pr-summary", "better-ui:review", "better-ui:init"];
+    for (const script of scriptChecks) {
+      const existing = pkg.scripts?.[script];
+      if (existing) {
+        scriptLines.push(`  ${chalk.green("✓")} ${chalk.bold(script)}  ${chalk.dim("→ " + existing)}`);
+      } else {
+        scriptLines.push(`  ${chalk.red("✗")} ${chalk.bold(script)}  ${chalk.dim("(not configured)")}`);
+      }
+    }
+    const scriptPanelTitle = `Scripts  (${scriptChecks.length - result.doctor.missingScripts.length}/${scriptChecks.length} present)`;
+    printPanel(scriptPanelTitle, scriptLines, "blue");
+
+    const eslintPath = path.join(cwd, "eslint.config.mjs");
+    let eslintLines: string[] = [];
+    if (fs.existsSync(eslintPath)) {
+      const eslintContent = fs.readFileSync(eslintPath, "utf8");
+      const enableRules = [...eslintContent.matchAll(/"([^"]+)":\s*"(error|warn)"/g)].map(m => `${m[1]} (${m[2]})`);
+      const disableRules = [...eslintContent.matchAll(/"([^"]+)":\s*"off"/g)].map(m => m[1]);
+      const ignoredPaths = [...eslintContent.matchAll(/ignores:\s*\[([^\]]+)\]/g)].flatMap(m => m[1].split(",").map(s => s.trim().replace(/['"]/g, "")));
+      if (enableRules.length > 0) eslintLines.push(`  ${chalk.green("Enabled:")} ${enableRules.join(", ")}`);
+      if (disableRules.length > 0) eslintLines.push(`  ${chalk.yellow("Disabled:")} ${disableRules.join(", ")}`);
+      if (ignoredPaths.length > 0) eslintLines.push(`  ${chalk.dim("Ignored:")} ${ignoredPaths.join(", ")}`);
+      eslintLines.push(`  ${chalk.dim("Files:")} **/*.{js,cjs,mjs,ts,tsx}  ${chalk.dim("Parser:")} @typescript-eslint/parser`);
+    } else {
+      eslintLines.push("  No ESLint configuration found.");
+    }
+    printPanel("ESLint Config", eslintLines, "cyan");
+
+    const tsconfigPath = path.join(cwd, "tsconfig.json");
+    let tsLines: string[] = [];
+    if (fs.existsSync(tsconfigPath)) {
+      try {
+        const tsconfig = JSON.parse(fs.readFileSync(tsconfigPath, "utf8")) as { compilerOptions?: Record<string, unknown> };
+        const co = tsconfig.compilerOptions || {};
+        tsLines.push(`  ${chalk.cyan("Target:")} ${String(co.target || "not set")}`);
+        tsLines.push(`  ${chalk.cyan("Module:")} ${String(co.module || "not set")}`);
+        tsLines.push(`  ${co.strict === true ? chalk.green("✓ Strict mode enabled") : chalk.red("✗ Strict mode NOT enabled")}`);
+      } catch {
+        tsLines.push("  Could not parse tsconfig.json");
+      }
+    } else {
+      tsLines.push("  No TypeScript config found.");
+    }
+    printPanel("TypeScript Config", tsLines, "cyan");
+
+    const frameworks = detectFramework(cwd);
+    let depCount = 0;
+    if (pkg.dependencies) depCount += Object.keys(pkg.dependencies).length;
+    if (pkg.devDependencies) depCount += Object.keys(pkg.devDependencies).length;
+    printPanel("Project Profile", [
+      `${chalk.cyan("Name:")} ${chalk.bold(projectName)}`,
+      `${chalk.cyan("Stack:")} ${frameworks.join(", ")}`,
+      `${chalk.cyan("Dependencies:")} ${depCount} packages (${Object.keys(pkg.dependencies || {}).length} runtime + ${Object.keys(pkg.devDependencies || {}).length} dev)`,
+      `${chalk.cyan("Images:")} ${result.health.summary.images} assets (${Math.round(result.health.summary.imageBytes / 1024)} KB)`,
+      `${chalk.cyan("Autofixable:")} ${result.health.summary.safeAutofixes} issues  ${chalk.cyan("High impact:")} ${result.health.summary.highImpactIssues}`
     ], "magenta");
-    printPanel("Doctor Findings", [
-      result.doctor.missingConfig.length > 0 ? `Missing config fields: ${result.doctor.missingConfig.join(", ")}` : "Config file looks complete.",
-      result.doctor.missingScripts.length > 0 ? `Missing helper scripts: ${result.doctor.missingScripts.join(", ")}` : "Helper scripts are present."
-    ], "yellow");
+    printRelatedCommands("doctor");
     return { shouldExit: false };
   }
 
   if (command === "health") {
     const result = await runHealthWorkflow(cwd);
-    printPanel("Project Health", [
-      `${chalk.cyan("Score:")} ${result.health.score}/100`,
-      `${chalk.cyan("High impact issues:")} ${result.health.summary.highImpactIssues}`,
-      `${chalk.cyan("Safe autofixes:")} ${result.health.summary.safeAutofixes}`
-    ], "magenta");
-    printPanel("Priorities", result.health.priorities.map(priority => `${priority.label} - ${priority.detail}`), "blue");
+    const activeCategories = Object.entries(result.health.categories)
+      .filter(([, cat]) => cat.count > 0)
+      .sort(([, a], [, b]) => b.count - a.count);
+
+    for (const [catName, catInfo] of activeCategories) {
+      const catFiles = result.report.files
+        .map(f => ({ filePath: f.filePath, messages: f.messages.filter(m => (m.category || "maintainability") === catName) }))
+        .filter(f => f.messages.length > 0);
+      const lines: string[] = [
+        `${chalk.cyan("Score:")} ${catInfo.score}/100  ${chalk.cyan("Issues:")} ${catInfo.count}`,
+        ""
+      ];
+      for (const cf of catFiles) {
+        for (const msg of cf.messages) {
+          const loc = msg.line !== null ? chalk.gray(`:${msg.line}${msg.column !== null ? `:${msg.column}` : ""}`) : "";
+          const rule = msg.ruleId ? chalk.cyan(msg.ruleId) : "";
+          lines.push(`  ${chalk.white(cf.filePath)}${loc}  ${rule}  ${chalk.dim(msg.message.length > 100 ? msg.message.slice(0, 100) + "…" : msg.message)}`);
+        }
+      }
+      if (lines.length > 0) {
+        const recs = categoryRecommendations(catName);
+        if (recs.length > 0) {
+          lines.push("", chalk.dim("Recommendations:"));
+          for (const rec of recs) {
+            lines.push(`  ${chalk.green("→")} ${rec}`);
+          }
+        }
+      }
+      const titleStr = (catInfo.label || catName).charAt(0).toUpperCase() + (catInfo.label || catName).slice(1);
+      printPanel(titleStr, lines.length > 0 ? lines : ["No issues found in this category."], "blue");
+    }
+
+    if (result.health.summary.images > 0) {
+      printPanel("Image Payload", [
+        `${chalk.cyan("Files:")} ${result.health.summary.images}`,
+        `${chalk.cyan("Total size:")} ${Math.round(result.health.summary.imageBytes / 1024)} KB`,
+        chalk.dim("Run /images --generate to optimize images.")
+      ], "magenta");
+    }
+    printRelatedCommands("health");
     return { shouldExit: false };
   }
 
   if (command === "deps") {
-    printPanel("Dependencies", ["Scanning project for unused and heavy dependencies..."], "yellow");
-    const { unusedDependencies, heavyDependencies } = await scanDependencies(cwd);
-    
+    const [pkgRaw, { unusedDependencies, heavyDependencies }] = await Promise.all([
+      fs.promises.readFile(path.join(cwd, "package.json"), "utf8").then(d => JSON.parse(d)).catch(() => null) as Promise<Record<string, unknown> | null>,
+      scanDependencies(cwd)
+    ]);
+    const pkg: { dependencies?: Record<string, string>; devDependencies?: Record<string, string>; peerDependencies?: Record<string, string> } = pkgRaw ?? {};
+    const runtimeDeps = Object.keys(pkg.dependencies || {});
+    const devDeps = Object.keys(pkg.devDependencies || {});
+    const peerDeps = Object.keys(pkg.peerDependencies || {});
+    printPanel("Dependency Scan", [
+      `${chalk.cyan("Runtime deps:")} ${runtimeDeps.length}`,
+      `${chalk.cyan("Dev deps:")} ${devDeps.length}`,
+      `${chalk.cyan("Peer deps:")} ${peerDeps.length}`,
+      `${chalk.cyan("Total:")} ${runtimeDeps.length + devDeps.length + peerDeps.length}`,
+      "",
+      `${chalk.cyan("Unused:")} ${unusedDependencies.length > 0 ? chalk.red(unusedDependencies.length) : chalk.green("0")}`,
+      `${chalk.cyan("Heavy:")} ${heavyDependencies.length > 0 ? chalk.yellow(heavyDependencies.length) : chalk.green("0")}`
+    ], "blue");
     if (unusedDependencies.length > 0) {
-      printPanel("Dead Code / Unused Dependencies", unusedDependencies.map(d => chalk.red(`- ${d}`)), "red");
+      const unusedLines = unusedDependencies.map(d => {
+        const version = pkg.dependencies?.[d] || "";
+        return `  ${chalk.red(d)}${version ? chalk.dim("@" + version) : ""}`;
+      });
+      printPanel("Unused Dependencies", [
+        chalk.dim("Not imported in any source file. Consider removing:"),
+        "",
+        ...unusedLines,
+        "",
+        chalk.dim("Run npm uninstall " + unusedDependencies.join(" ") + " to remove.")
+      ], "red");
     } else {
-      printPanel("Dead Code / Unused Dependencies", ["All package.json dependencies seem to be used!"], "green");
+      printPanel("Unused Dependencies", [
+        chalk.green("✓ All dependencies appear to be in use."),
+        chalk.dim("Scanned import statements across src/ for each runtime dependency.")
+      ], "green");
     }
-
     if (heavyDependencies.length > 0) {
-      printPanel("Heavy Dependencies Detected", heavyDependencies.map(d => chalk.yellow(`- ${d.name}`)), "yellow");
+      const heavyLines = heavyDependencies.map(d => {
+        const extra = altMap[d.name] ? `  ${chalk.dim("(consider " + altMap[d.name] + ")")}` : "";
+        return `  ${chalk.yellow(d.name)}  ${d.sizeKb > 0 ? Math.round(d.sizeKb) + " KB" : ""}${extra}`;
+      });
+      printPanel("Heavy Dependencies", heavyLines, "yellow");
     }
+    printRelatedCommands("deps");
     return { shouldExit: false };
   }
 
@@ -537,13 +757,41 @@ async function _runSlashCommand(cwd: string, input: string) {
         ]
       }
     ]);
+    printRelatedCommands("advanced");
     return { shouldExit: false };
   }
 
   if (command === "hotspots") {
     const result = await runScanWorkflow(cwd);
-    const hotspots = buildHotspots(result.report, 8);
-    printPanel("Hotspots", hotspots.length > 0 ? hotspots.map(hotspot => `${hotspot.filePath}  score=${hotspot.score}`) : ["No hotspots found."], "red");
+    const topN = 10;
+    const hotspots = buildHotspots(result.report, topN);
+    if (hotspots.length === 0) {
+      printPanel("Hotspots", ["No hotspots found — no files with issues."], "green");
+    } else {
+      const totalFiles = result.report.files.length;
+      printPanel("Hotspots", [
+        `${chalk.dim(`Top ${Math.min(topN, hotspots.length)} of ${totalFiles} files`)}`,
+        "",
+        chalk.cyan("  File") + chalk.dim("                          Errors  Warnings  Score"),
+        ...hotspots.map(h =>
+          `  ${chalk.white(h.filePath.padEnd(38))} ${chalk.red(String(h.errors).padStart(4))}   ${chalk.yellow(String(h.warnings).padStart(5))}  ${chalk.bold(String(h.score).padStart(5))}`
+        )
+      ], "red");
+      for (const hotspot of hotspots) {
+        const file = result.report.files.find(f => f.filePath === hotspot.filePath);
+        if (!file || file.messages.length === 0) continue;
+        const msgLines: string[] = [];
+        for (const msg of file.messages) {
+          const loc = msg.line !== null ? chalk.gray(`:${msg.line}${msg.column !== null ? `:${msg.column}` : ""}`) : "";
+          const tag = msg.severity === 2 ? chalk.red("error") : msg.severity === 1 ? chalk.yellow("warn") : chalk.gray("info");
+          const rule = msg.ruleId ? chalk.cyan(msg.ruleId) : "";
+          const text = msg.message.length > 100 ? msg.message.slice(0, 100) + "…" : msg.message;
+          msgLines.push(`  ${tag} ${rule}${loc}  ${chalk.dim(text)}`);
+        }
+        printPanel(`  ${hotspot.filePath}`, msgLines, "yellow");
+      }
+    }
+    printRelatedCommands("hotspots");
     return { shouldExit: false };
   }
 
@@ -553,11 +801,14 @@ async function _runSlashCommand(cwd: string, input: string) {
       staged: readFlag(tokens, "--staged"),
       out: readOption(tokens, "--out")
     });
-    printPanel("Review Summary", [
+    printPanel("Review Scope", [
       `${chalk.cyan("Scope:")} ${result.scope}`,
-      `${chalk.cyan("Score:")} ${result.report.summary.score}/100`
+      `${chalk.cyan("Score:")} ${result.report.summary.score}/100`,
+      `${chalk.cyan("Errors:")} ${chalk.red(String(result.report.summary.errors))}  ${chalk.cyan("Warnings:")} ${chalk.yellow(String(result.report.summary.warnings))}`,
+      `${chalk.cyan("Files with issues:")} ${result.report.summary.filesWithIssues}`
     ], "cyan");
     console.log(`\n${result.body}\n`);
+    printRelatedCommands(readFlag(tokens, "--changed") ? "review-changed" : readFlag(tokens, "--staged") ? "review-staged" : "review");
     return { shouldExit: false };
   }
 
@@ -569,9 +820,11 @@ async function _runSlashCommand(cwd: string, input: string) {
     });
     printPanel("PR Summary", [
       `${chalk.cyan("Scope:")} ${result.scope}`,
-      `${chalk.cyan("Score:")} ${result.report.summary.score}/100`
+      `${chalk.cyan("Score:")} ${result.report.summary.score}/100`,
+      `${chalk.cyan("Issues:")} ${result.report.summary.totalIssues} (${chalk.red(result.report.summary.errors)} errors, ${chalk.yellow(result.report.summary.warnings)} warnings)`
     ], "cyan");
     console.log(`\n${result.body}\n`);
+    printRelatedCommands("pr-summary");
     return { shouldExit: false };
   }
 
@@ -580,25 +833,64 @@ async function _runSlashCommand(cwd: string, input: string) {
       changed: readFlag(tokens, "--changed"),
       staged: readFlag(tokens, "--staged")
     });
-    printSummary(report);
-    printPanel("Accessibility Guidance", report.files.flatMap(file => file.messages.slice(0, 2).map(message => {
-      const explanation = explainMessage(message);
-      return `${file.filePath}: ${explanation.fix}`;
-    })).slice(0, 12), "blue");
+    const a11yCount = report.files.reduce((sum, f) => sum + f.messages.filter(m => m.category === "accessibility").length, 0);
+    printPanel("Accessibility", [
+      `${chalk.cyan("Accessibility issues:")} ${a11yCount}`,
+      "",
+      ...report.files.flatMap(file => file.messages.slice(0, 3).map(message => {
+        const explanation = explainMessage(message);
+        return `${chalk.white(file.filePath)}  ${explanation.title}  ${chalk.dim("→ " + explanation.fix)}`;
+      })).slice(0, 12)
+    ], "blue");
+    printRelatedCommands("check-accessibility");
     return { shouldExit: false };
   }
 
   if (command === "compare") {
     const result = await runCompareWorkflow(cwd);
-    if (!result.delta) {
+    if (!result.delta || !result.previous) {
       printPanel("Comparison", ["No previous snapshot exists yet. A baseline has now been saved."], "yellow");
+      printRelatedCommands("compare");
       return { shouldExit: false };
     }
+    const previousTime = result.previous.savedAt ? formatTimestamp(result.previous.savedAt) : "unknown";
     printPanel("Comparison", [
-      `${chalk.cyan("Score delta:")} ${result.delta.scoreDelta}`,
-      `${chalk.cyan("Error delta:")} ${result.delta.errorDelta}`,
-      `${chalk.cyan("Warning delta:")} ${result.delta.warningDelta}`
+      `${chalk.dim("Previous: " + previousTime)}`,
+      `${chalk.cyan("Score:")} ${result.current.report.summary.score}/100 ${chalk.dim("(prev: " + result.previous.report.summary.score + ")")}  ${formatDelta(result.delta.scoreDelta)}`,
+      `${chalk.cyan("Errors:")} ${chalk.red(String(result.current.report.summary.errors))}  ${formatDelta(result.delta.errorDelta)}`,
+      `${chalk.cyan("Warnings:")} ${chalk.yellow(String(result.current.report.summary.warnings))}  ${formatDelta(result.delta.warningDelta)}`,
+      `${chalk.cyan("Files:")} ${result.current.report.summary.filesWithIssues}  ${formatDelta(result.delta.fileDelta)}`
     ], "green");
+
+    const prevFiles = new Map(result.previous.report.files.map(f => [f.filePath, f]));
+    const currFiles = new Map(result.current.report.files.map(f => [f.filePath, f]));
+    const allPaths = new Set([...prevFiles.keys(), ...currFiles.keys()]);
+    const fileDeltas: { path: string; errors: number; warnings: number }[] = [];
+    for (const fp of allPaths) {
+      const prev = prevFiles.get(fp);
+      const curr = currFiles.get(fp);
+      const prevErrors = prev?.errorCount ?? 0;
+      const prevWarnings = prev?.warningCount ?? 0;
+      const currErrors = curr?.errorCount ?? 0;
+      const currWarnings = curr?.warningCount ?? 0;
+      if (prevErrors !== currErrors || prevWarnings !== currWarnings) {
+        fileDeltas.push({ path: fp, errors: currErrors - prevErrors, warnings: currWarnings - prevWarnings });
+      }
+    }
+    if (fileDeltas.length > 0) {
+      const sorted = fileDeltas.sort((a, b) => Math.abs(b.errors) + Math.abs(b.warnings) - (Math.abs(a.errors) + Math.abs(a.warnings)));
+      const diffLines = sorted.slice(0, 15).map(d => {
+        const parts = [chalk.white(d.path)];
+        if (d.errors !== 0) parts.push(chalk.dim("errors:") + formatDelta(d.errors));
+        if (d.warnings !== 0) parts.push(chalk.dim("warnings:") + formatDelta(d.warnings));
+        return `  ${parts.join("  ")}`;
+      });
+      if (sorted.length > 15) {
+        diffLines.push(chalk.dim(`  … and ${sorted.length - 15} more files`));
+      }
+      printPanel("File Changes", diffLines, "yellow");
+    }
+    printRelatedCommands("compare");
     return { shouldExit: false };
   }
 
@@ -606,35 +898,92 @@ async function _runSlashCommand(cwd: string, input: string) {
     const result = await runExplainWorkflow(cwd, tokens[1]);
     printPanel("Explain", [
       `${chalk.cyan("Target:")} ${result.target}`,
+      `${chalk.cyan("Files with issues:")} ${result.report.summary.filesWithIssues}`,
+      `${chalk.cyan("Errors:")} ${chalk.red(String(result.report.summary.errors))}  ${chalk.cyan("Warnings:")} ${chalk.yellow(String(result.report.summary.warnings))}`,
       `${chalk.cyan("Total issues:")} ${result.report.summary.totalIssues}`
     ], "magenta");
-    console.log(`\n${result.summary}\n`);
+
+    const seenRules = new Set<string>();
+    const explainLines: string[] = [];
+    for (const file of result.report.files) {
+      for (const msg of file.messages) {
+        const ruleKey = msg.ruleId || "general";
+        if (seenRules.has(ruleKey)) continue;
+        seenRules.add(ruleKey);
+        const explanation = explainMessage(msg);
+        explainLines.push(`  ${chalk.bold(msg.ruleId || "General issue")}`);
+        explainLines.push(`    ${chalk.dim("Why:")} ${explanation.why}`);
+        explainLines.push(`    ${chalk.green("Fix:")} ${explanation.fix}`);
+        explainLines.push("");
+      }
+    }
+    if (explainLines.length > 0) {
+      printPanel("Rule Explanations", explainLines.slice(0, 24), "cyan");
+    }
+
+    if (result.summary) {
+      console.log(chalk.dim("\nSummary:"));
+      console.log(`  ${result.summary}`);
+    }
+    printRelatedCommands("explain");
     return { shouldExit: false };
   }
 
   if (command === "images") {
     const images = await scanImages(cwd);
-    printPanel("Image Inventory", images.length > 0 ? images.slice(0, 10).map(image => `${image.file} (${Math.round(image.size / 1024)} KB)`) : ["No images found."], "blue");
+    if (images.length === 0) {
+      printPanel("Images", ["No PNG, JPG, or JPEG assets were found."], "green");
+      printRelatedCommands("images");
+      return { shouldExit: false };
+    }
+    const sorted = [...images].sort((a, b) => b.size - a.size);
+    const totalKb = Math.round(images.reduce((sum, i) => sum + i.size, 0) / 1024);
+    const pngCount = images.filter(i => i.file.endsWith(".png")).length;
+    const jpgCount = images.filter(i => /\.jpe?g$/i.test(i.file)).length;
+    printPanel("Image Inventory", [
+      `${chalk.cyan("Total files:")} ${String(images.length)}`,
+      `${chalk.cyan("Total size:")} ${String(totalKb)} KB`,
+      `${chalk.cyan("PNG:")} ${pngCount}  ${chalk.cyan("JPG/JPEG:")} ${jpgCount}`,
+      "",
+      chalk.dim("Largest images:"),
+      ...sorted.slice(0, 8).map(i => `  ${chalk.white(i.file)}  ${chalk.yellow(Math.round(i.size / 1024) + " KB")}`)
+    ], "blue");
     if (readFlag(tokens, "--generate")) {
       const qualityOption = parseInt(readOption(tokens, "--quality") || "75", 10);
       const quality = Number.isFinite(qualityOption) ? qualityOption : 75;
       const generated: string[] = [];
-      for (const image of images) {
+      let totalOriginal = 0;
+      let totalWebP = 0;
+      for (const image of sorted) {
         try {
-          const result = await generateWebP(cwd, image.file, quality);
-          generated.push(`${result.out} (${Math.round(result.size / 1024)} KB)`);
+          const g = await generateWebP(cwd, image.file, quality);
+          generated.push(`${chalk.green("✓")} ${g.out}  ${chalk.yellow(Math.round(g.size / 1024) + " KB")}`);
+          totalOriginal += image.size;
+          totalWebP += g.size;
         } catch (err) {
-          generated.push(`${image.file} (failed: ${String(err)})`);
+          generated.push(`${chalk.red("✗")} ${image.file} (failed: ${String(err)})`);
         }
       }
-      printPanel("Generated WebP", generated.slice(0, 12), "magenta");
+      if (totalOriginal > 0) {
+        const savings = Math.round((1 - totalWebP / totalOriginal) * 100);
+        generated.push("", `${chalk.cyan("Total savings:")} ${Math.round(totalOriginal / 1024)} KB → ${Math.round(totalWebP / 1024)} KB (${chalk.green("-" + savings + "%")})`);
+      }
+      printPanel("Generated WebP", generated.slice(0, 14), "magenta");
     }
+    printRelatedCommands(readFlag(tokens, "--generate") ? "images-generate" : "images");
     return { shouldExit: false };
   }
 
   if (command === "init") {
     const result = await runInit(cwd, { preset: readOption(tokens, "--preset") });
-    printPanel("Setup", ["Configuration updated.", result.openTui ? "The command center is already open here." : "Run /menu later to reopen the TUI."], "green");
+    const config = loadConfig(cwd);
+    printPanel("Setup Complete", [
+      `${chalk.cyan("Project:")} ${chalk.bold(config.projectName || path.basename(cwd))}`,
+      `${chalk.cyan("Preset:")} ${config.preset || "custom"}`,
+      `${chalk.cyan("Report file:")} ${config.defaults?.reportFile || "report.json"}`,
+      result.openTui ? "The command center is already open here." : `Run ${chalk.bold("/scan")} to generate a report.`
+    ], "green");
+    printRelatedCommands("init");
     return { shouldExit: false };
   }
 
@@ -653,6 +1002,7 @@ async function _runSlashCommand(cwd: string, input: string) {
   }
 
   printPanel("Slash Command", [`Unsupported command: /${command}`], "red");
+  printCommandSuggestions(`/${command}`, "Closest Matches");
   return { shouldExit: false };
 }
 
@@ -670,6 +1020,9 @@ async function runSlashCommand(cwd: string, input: string) {
   const title = ` ${input} `;
   const padLength = Math.max(0, termWidth - 3 - title.length);
   console.log(`\n${chalk.blue("┏━━")}${chalk.bold.yellow(title)}${chalk.blue("━".repeat(padLength) + "┓")}`);
+  if (command !== "scan") {
+    printRunSummary(input);
+  }
 
   const result = await _runSlashCommand(cwd, input);
 
@@ -698,7 +1051,6 @@ export async function runTui() {
 
   const cwd = process.cwd();
   let nextCommandToRun: string | null = null;
-  let skipClearOnNextDashboard = false;
   let hasRenderedDashboard = false;
 
   while (true) {
@@ -714,7 +1066,6 @@ export async function runTui() {
       if (!hasRenderedDashboard || forceFreshDashboard) {
         hardClear();
       }
-      skipClearOnNextDashboard = false;
       forceFreshDashboard = false;
       hasRenderedDashboard = true;
       printBanner();
@@ -728,7 +1079,8 @@ export async function runTui() {
             `${chalk.cyan("Stack:")} ${stack.join(" + ")}`,
             `${chalk.cyan("Report:")} ${path.basename(reportPath)}`,
             `${chalk.cyan("Extensions:")} ${defaultExts.join(", ")}`,
-            `${chalk.cyan("Git:")} ${gitEnabled ? getCurrentBranch(cwd) || "attached" : "not a repository"}`
+            `${chalk.cyan("Git:")} ${gitEnabled ? getCurrentBranch(cwd) || "attached" : "not a repository"}`,
+            `${chalk.cyan("Config:")} ${config.preset || "custom"} preset`
           ]
         },
         {
@@ -738,6 +1090,26 @@ export async function runTui() {
             "Type a slash command below (e.g. /scan, /deps).",
             "Type /advanced to see pro-tips and subcommands.",
             "Type /commands or press Ctrl+Shift+S for the palette."
+          ]
+        },
+        {
+          title: "Popular Flows",
+          color: "green",
+          lines: [
+            `${chalk.bold("/scan")} ${chalk.dim("Full project scan")}`,
+            `${chalk.bold("/fix --interactive")} ${chalk.dim("Pick fix hunks safely")}`,
+            `${chalk.bold("/review --changed")} ${chalk.dim("Review current diff")}`,
+            `${chalk.bold("/images --generate")} ${chalk.dim("Create WebP assets")}`
+          ]
+        },
+        {
+          title: "Keyboard Shortcuts",
+          color: "yellow",
+          lines: [
+            `${chalk.bold("Ctrl+Shift+S")} ${chalk.dim("Open command palette")}`,
+            `${chalk.bold("/")} ${chalk.dim("Type next command after any result")}`,
+            `${chalk.bold("a")} ${chalk.dim("Return to dashboard")}`,
+            `${chalk.bold("Esc / Ctrl+C")} ${chalk.dim("Exit cleanly")}`
           ]
         }
       ]);
@@ -809,17 +1181,7 @@ export async function runTui() {
               nextCommandToRun = null;
               continue;
             }
-            if (selected.followups && Array.isArray(selected.followups) && selected.followups.length > 0) {
-              const followup = await presentFollowupMenu(cwd, selected.followups);
-              if (followup) {
-                nextCommandToRun = followup;
-                skipClearOnNextDashboard = true;
-              } else {
-                nextCommandToRun = null;
-              }
-            } else {
-              nextCommandToRun = await pause();
-            }
+            nextCommandToRun = await pause();
           }
           continue;
         }
@@ -856,17 +1218,7 @@ export async function runTui() {
                 nextCommandToRun = null;
                 continue;
               }
-              if (selected.followups && Array.isArray(selected.followups) && selected.followups.length > 0) {
-                const followup = await presentFollowupMenu(cwd, selected.followups);
-                if (followup) {
-                  nextCommandToRun = followup;
-                  skipClearOnNextDashboard = true;
-                } else {
-                  nextCommandToRun = null;
-                }
-              } else {
-                nextCommandToRun = await pause();
-              }
+              nextCommandToRun = await pause();
             }
             continue;
           }
@@ -890,6 +1242,7 @@ export async function runTui() {
 
     if (!commandInput.startsWith("/")) {
       printPanel("Slash Command", ["Please type a command that starts with '/' (e.g. /scan --format json)"], "yellow");
+      printCommandSuggestions(commandInput);
       nextCommandToRun = await pause();
       continue;
     }
@@ -908,17 +1261,7 @@ export async function runTui() {
             nextCommandToRun = null;
             continue;
           }
-          if (selected.followups && Array.isArray(selected.followups) && selected.followups.length > 0) {
-            const followup = await presentFollowupMenu(cwd, selected.followups);
-            if (followup) {
-              nextCommandToRun = followup;
-              skipClearOnNextDashboard = true;
-            } else {
-              nextCommandToRun = null;
-            }
-          } else {
-            nextCommandToRun = await pause();
-          }
+          nextCommandToRun = await pause();
           }
         continue;
       }
@@ -934,17 +1277,6 @@ export async function runTui() {
        process.exit(0);
      }
 
-      // If the command returned followups, offer the execute-subcommand menu
-      if (result.followups && Array.isArray(result.followups) && result.followups.length > 0) {
-        const followup = await presentFollowupMenu(cwd, result.followups);
-        if (followup) {
-          nextCommandToRun = followup;
-          skipClearOnNextDashboard = true;
-        } else {
-          nextCommandToRun = null;
-        }
-      } else {
-        nextCommandToRun = await pause();
-      }
+      nextCommandToRun = await pause();
   }
 }

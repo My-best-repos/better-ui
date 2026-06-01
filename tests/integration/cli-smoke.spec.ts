@@ -52,7 +52,7 @@ test("deps command reports an unused dependency from package.json", () => {
   if (result.error) throw result.error;
 
   expect(result.status).toBe(0);
-  expect(result.stdout).toContain("Dead Code / Unused Dependencies");
+  expect(result.stdout).toContain("Unused Dependencies");
   expect(result.stdout).toContain("moment");
 });
 
