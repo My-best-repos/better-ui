@@ -16,11 +16,11 @@ import { printSummary } from "../reporters/terminalReporter";
 import { scanDependencies } from "../scanners/dependencyScanner";
 import { generateWebP, scanImages } from "../scanners/imageScanner";
 import { parseSlashCommand } from "../slashCommands";
-import { printBanner, printPanel, printGrid, formatDelta, formatElapsed, formatTimestamp, printRunSummary } from "../terminalUi";
+import { printBanner, printPanel, printGrid, formatDelta, formatElapsed, printRunSummary } from "../terminalUi";
+import { REVIEW_DRAFT, PR_GUIDE, INIT_NOTE, IMAGES_WEBP_NOTE } from "../commandText";
 import {
   applyInteractiveHunkSelection,
   runAccessibilityWorkflow,
-  runCompareWorkflow,
   runDoctorWorkflow,
   runExplainWorkflow,
   runFixWorkflow,
@@ -31,6 +31,7 @@ import {
   runScanWorkflow
 } from "../cli/workflows";
 import { formatRelatedCommands } from "../relatedCommands";
+import { auditUI, scanColors, scanStandards, scanTypography, scanSpacing } from "../uiTools";
 
 const altMap: Record<string, string> = {
   "lodash": "native Array/Map/Set methods or radashi",
@@ -130,18 +131,31 @@ const COMMAND_HEADLINES: Record<string, { title: string; tone: string; color: "m
   "review-staged": { title: "Staged Review", tone: "This is the exact commit candidate. Treat it like a release slice.", color: "cyan" },
   "pr-summary": { title: "Release Narrative", tone: "Translate technical findings into a clean story the reviewer can trust.", color: "magenta" },
   "check-accessibility": { title: "Accessibility Pass", tone: "Accessibility is not decoration. This pass isolates barriers before they ship.", color: "blue" },
-  "compare": { title: "Delta Brief", tone: "Progress only counts when you can measure it. Compare now against the saved baseline.", color: "green" },
+
   "explain": { title: "Rule Translator", tone: "Turn raw findings into intent, impact, and the shortest correct fix.", color: "yellow" },
   "images": { title: "Asset Pass", tone: "Image weight is frontend performance. Audit the payload before it hurts users.", color: "blue" },
   "images-generate": { title: "Asset Optimization", tone: "Compression is being turned into concrete bytes saved, not just good intentions.", color: "green" },
   "init": { title: "Setup Concierge", tone: "Bootstrapping the project so the rest of the toolchain has something solid to stand on.", color: "green" },
-  "commands": { title: "Command Index", tone: "This is the operating surface. Know the tools, then move with intent.", color: "magenta" }
+  "commands": { title: "Command Index", tone: "This is the operating surface. Know the tools, then move with intent.", color: "magenta" },
+  "ui-audit": { title: "UI Surface Audit", tone: "File distribution, CSS methodology, semantic HTML, and responsiveness — a full UI health check.", color: "blue" },
+  "ui-colors": { title: "Color Palette Scan", tone: "Every hex, rgb, and Tailwind color class across the project. Know your palette.", color: "magenta" },
+  "ui-standards": { title: "Standards Review", tone: "Naming, exports, props, and complexity — component hygiene matters.", color: "cyan" },
+  "ui-typography": { title: "Typography Audit", tone: "Font families, sizes, line-heights, weights — the typography DNA of the project.", color: "magenta" },
+  "ui-spacing": { title: "Spacing Scan", tone: "Margins, paddings, gaps — find spacing inconsistencies across the UI.", color: "blue" }
 };
 
 function printCommandHeadline(key: string) {
   const entry = COMMAND_HEADLINES[key];
   if (!entry) return;
   printPanel(entry.title, [entry.tone], entry.color);
+}
+
+function formatDiagnosticLine(msg: { ruleId?: string | null; line?: number | null; column?: number | null; message: string }, filePath?: string): string {
+  const rule = msg.ruleId ? chalk.cyan(msg.ruleId) : chalk.dim("general");
+  const loc = msg.line !== null ? chalk.gray(`:${msg.line}${msg.column !== null ? `:${msg.column}` : ""}`) : "";
+  const text = msg.message.length > 100 ? msg.message.slice(0, 100) + "…" : msg.message;
+  const pathPart = filePath ? `${chalk.white(filePath)}${loc}  ` : "";
+  return `  ${pathPart}${rule}  ${chalk.dim(text)}`;
 }
 
 let forceFreshDashboard = false;
@@ -237,6 +251,7 @@ async function showCommandPalette() {
 
     const choices = COMMANDS
       .filter(command => command.slash !== "/commands" && command.slash !== "/help")
+      .sort((a, b) => a.slash.localeCompare(b.slash))
       .map(command => {
         const slashPad = command.slash.padEnd(slashWidth, " ");
         return {
@@ -267,7 +282,7 @@ async function showCommandPalette() {
 
     palettePrompt.up = function() {
       const firstVisible = this.visible[0];
-      if (this.index === 0 && firstVisible?.name === "/scan") {
+      if (this.index === 0 && firstVisible?.name === "/a11y") {
         return this.alert();
       }
       return originalUp();
@@ -275,7 +290,7 @@ async function showCommandPalette() {
 
     palettePrompt.down = function() {
       const lastVisible = this.visible[this.visible.length - 1];
-      if (this.index === this.visible.length - 1 && lastVisible?.name === "/exit") {
+      if (this.index === this.visible.length - 1 && lastVisible?.name === "/ui-typography") {
         return this.alert();
       }
       return originalDown();
@@ -308,6 +323,31 @@ function readOption(tokens: string[], option: string) {
   return index >= 0 ? tokens[index + 1] : undefined;
 }
 
+// Always ask the user for output format (markdown | json | html).
+// If the command includes --format, use it as the initial selection but
+// still prompt in the TUI and prefer the interactive response.
+async function askForFormat(tokensOrProvided: string[] | string | undefined,
+  maybeProvided?: string) {
+  let provided: string | undefined;
+  if (Array.isArray(tokensOrProvided)) provided = (readOption(tokensOrProvided, "--format") as string | undefined);
+  else provided = (tokensOrProvided as string | undefined) || maybeProvided;
+  provided = provided || "json";
+  const choices = ["markdown", "json", "html"];
+  const initial = (typeof provided === "string" && choices.indexOf(provided) >= 0) ? provided : "json";
+  try {
+    const answer: any = await prompt({
+      type: "select",
+      name: "format",
+      message: "Output format:",
+      choices,
+      initial
+    } as any);
+    return (answer.format || initial) as "json" | "markdown" | "html";
+  } catch (err) {
+    return provided as "json" | "markdown" | "html";
+  }
+}
+
 async function _runSlashCommand(cwd: string, input: string) {
   const tokens = parseSlashCommand(input);
   if (!tokens || tokens.length === 0) {
@@ -325,16 +365,40 @@ async function _runSlashCommand(cwd: string, input: string) {
 
   if (command === "scan") {
     const start = Date.now();
-    const skipHistory = readFlag(tokens, "--skip-history");
-    const format = (readOption(tokens, "--format") as "json" | "markdown" | "html" | undefined) || "json";
-    const out = readOption(tokens, "--out");
+    const outProvided = readOption(tokens, "--out");
+    const noSaveFlag = readFlag(tokens, "--no-save");
+    let outPath: string | undefined = outProvided;
+    let chosenFormat: "json" | "markdown" | "html" | undefined = undefined;
+
+    if (!outProvided && !noSaveFlag) {
+      try {
+        const cfg = loadConfig(cwd);
+        const defaultPreviewPath = getReportFile(cwd, cfg, undefined, undefined as any, "scan");
+        const saveAnswer: any = await prompt({ type: "confirm", name: "save", message: `Save report? (default path: ${defaultPreviewPath})`, initial: true } as any);
+        if (saveAnswer.save) {
+          chosenFormat = await askForFormat(tokens, readOption(tokens, "--format"));
+          outPath = getReportFile(cwd, cfg, undefined, chosenFormat, "scan");
+        } else {
+          outPath = undefined;
+        }
+      } catch (err) {
+        chosenFormat = await askForFormat(tokens, readOption(tokens, "--format"));
+        const cfg = loadConfig(cwd);
+        outPath = getReportFile(cwd, cfg, undefined, chosenFormat, "scan");
+      }
+    } else if (noSaveFlag) {
+      outPath = undefined;
+    } else if (outProvided) {
+      chosenFormat = await askForFormat(tokens, readOption(tokens, "--format"));
+    }
 
     const result = await runScanWorkflow(cwd, {
       changed: readFlag(tokens, "--changed"),
       staged: readFlag(tokens, "--staged"),
-      out,
-      format,
-      saveHistory: skipHistory ? false : undefined
+      out: outPath,
+      format: chosenFormat,
+      command: "scan",
+      writeReport: typeof outPath === "string"
     });
 
     const durationMs = Date.now() - start;
@@ -344,7 +408,7 @@ async function _runSlashCommand(cwd: string, input: string) {
     const fixableCount = (result.report.files || []).reduce((sum, f) => sum + (f.messages || []).filter((m: any) => m.fixable).length, 0);
     let top = parseInt(readOption(tokens, "--top") || "5", 10);
     if (!Number.isFinite(top) || top < 1) top = 5;
-    const hotspots = buildHotspots(result.report, top);
+    const hotspots = buildHotspots(result.report, cwd, top);
 
     const fixableFiles = (result.report.files || [])
       .map(f => ({ filePath: f.filePath, fixables: (f.messages || []).filter((m: any) => m.fixable).length }))
@@ -371,12 +435,13 @@ async function _runSlashCommand(cwd: string, input: string) {
     printPanel("Scan Output", [
       `${chalk.cyan("Scope:")} ${result.report.scope || "all"}`,
       `${chalk.cyan("Saved report:")} ${result.reportPath ? result.reportPath : "(not written)"}`,
-      `${chalk.cyan("History snapshot:")} ${result.snapshotPath ? result.snapshotPath : "disabled"}`,
       `${chalk.cyan("Report size:")} ${reportSizeText}`,
       `${chalk.cyan("Duration:")} ${formatElapsed(durationMs)}`,
       `${chalk.cyan("Files with issues:")} ${result.report.summary.filesWithIssues}`,
       `${chalk.cyan("Total issues:")} ${result.report.summary.totalIssues}`,
-      `${chalk.cyan("Autofixable issues:")} ${fixableCount}`
+      `${chalk.cyan("Autofixable issues:")} ${fixableCount}`,
+      "",
+      chalk.dim("Reports are saved under the shown path. To disable saving, run with --no-save or set defaults.reportFile to an empty value in your better-ui config.")
     ], "cyan");
 
     if (categories.length > 0) {
@@ -388,10 +453,7 @@ async function _runSlashCommand(cwd: string, input: string) {
         const catLines: string[] = [`${chalk.cyan("Issues:")} ${String(count)}`];
         for (const cf of catFiles) {
           for (const msg of cf.messages) {
-            const loc = msg.line !== null ? chalk.gray(`:${msg.line}${msg.column !== null ? `:${msg.column}` : ""}`) : "";
-            const rule = msg.ruleId ? chalk.cyan(msg.ruleId) : "";
-            const text = msg.message.length > 100 ? msg.message.slice(0, 100) + "…" : msg.message;
-            catLines.push(`  ${chalk.white(cf.filePath)}${loc}  ${rule}  ${chalk.dim(text)}`);
+            catLines.push(formatDiagnosticLine(msg, cf.filePath));
           }
         }
         const titleStr = String(catName).charAt(0).toUpperCase() + String(catName).slice(1);
@@ -401,7 +463,20 @@ async function _runSlashCommand(cwd: string, input: string) {
       printPanel("Category Breakdown", ["No categorized issues detected."], "blue");
     }
 
-    printPanel("Hotspots", hotspots.length > 0 ? hotspots.map(h => `${h.filePath}  score=${h.score}  errors=${h.errors}  warnings=${h.warnings}`) : ["No hotspots found."], "red");
+    const hotspotLines: string[] = [];
+    if (hotspots.length > 0) {
+      for (const h of hotspots) {
+        const densityBadge = h.density > 10 ? chalk.red(`🔥${h.density}`) : h.density > 3 ? chalk.yellow(`⚡${h.density}`) : `${h.density}`;
+        const lineStr = h.lineCount > 0 ? chalk.dim(`${h.lineCount} lines`) : "";
+        hotspotLines.push(`  ${chalk.white(h.filePath)}`);
+        hotspotLines.push(`    ${chalk.cyan("Score:")} ${h.score}  ${chalk.red("Errors:")} ${h.errors}  ${chalk.yellow("Warnings:")} ${h.warnings}  ${chalk.dim(h.topCategory)}  ${lineStr}  ${chalk.dim("density:")} ${densityBadge}`);
+        hotspotLines.push("");
+      }
+      hotspotLines.pop();
+    } else {
+      hotspotLines.push("No hotspots found.");
+    }
+    printPanel("Hotspots", hotspotLines, "red");
 
     printPanel("Top Fixable Files", fixableFiles.length > 0 ? fixableFiles.map(f => `${f.filePath} (${f.fixables} autofixable)`) : ["No autofixable files found in this scan."], "yellow");
 
@@ -506,9 +581,7 @@ async function _runSlashCommand(cwd: string, input: string) {
         if (fixable.length === 0) continue;
         previewLines.push(`  ${chalk.white(file.filePath)}`);
         for (const msg of fixable) {
-          const loc = msg.line !== null ? chalk.gray(`:${msg.line}${msg.column !== null ? `:${msg.column}` : ""}`) : "";
-          const rule = msg.ruleId ? chalk.cyan(msg.ruleId) : "";
-          previewLines.push(`    ${chalk.green("→")}${loc}  ${rule}  ${chalk.dim(msg.message.length > 90 ? msg.message.slice(0, 90) + "…" : msg.message)}`);
+          previewLines.push(`    ${chalk.green("→")} ${formatDiagnosticLine(msg)}`);
         }
       }
       if (fixableCount === 0) {
@@ -550,7 +623,7 @@ async function _runSlashCommand(cwd: string, input: string) {
     const cfgFields: Record<string, { recommended: string; hint: string }> = {
       "projectName": { recommended: `"${projectName}"`, hint: "Used in report headers and metadata" },
       "preset": { recommended: `"react", "next", "vite", "vue", "landing-page", "typescript-library"`, hint: "Enables preset-specific rules and defaults" },
-      "defaults.reportFile": { recommended: `"report.json"`, hint: "Default output path for scan reports" },
+      "defaults.reportFile": { recommended: `"report.txt"`, hint: "Default output path for scan reports" },
       "defaults.extensions": { recommended: `[".js", ".jsx", ".ts", ".tsx"]`, hint: "File extensions the scanner will process" }
     };
     const cfgLines: string[] = [];
@@ -629,6 +702,13 @@ async function _runSlashCommand(cwd: string, input: string) {
 
   if (command === "health") {
     const result = await runHealthWorkflow(cwd);
+
+    printPanel("Run Output", [
+      `${chalk.cyan("Saved report:")} ${result.reportPath ? result.reportPath : "(not written)"}`,
+      "",
+      chalk.dim("Reports are saved under the shown path. To disable saving, run with --no-save or set defaults.reportFile to an empty value in your better-ui config.")
+    ], "cyan");
+
     const activeCategories = Object.entries(result.health.categories)
       .filter(([, cat]) => cat.count > 0)
       .sort(([, a], [, b]) => b.count - a.count);
@@ -643,9 +723,7 @@ async function _runSlashCommand(cwd: string, input: string) {
       ];
       for (const cf of catFiles) {
         for (const msg of cf.messages) {
-          const loc = msg.line !== null ? chalk.gray(`:${msg.line}${msg.column !== null ? `:${msg.column}` : ""}`) : "";
-          const rule = msg.ruleId ? chalk.cyan(msg.ruleId) : "";
-          lines.push(`  ${chalk.white(cf.filePath)}${loc}  ${rule}  ${chalk.dim(msg.message.length > 100 ? msg.message.slice(0, 100) + "…" : msg.message)}`);
+          lines.push(formatDiagnosticLine(msg, cf.filePath));
         }
       }
       if (lines.length > 0) {
@@ -682,13 +760,13 @@ async function _runSlashCommand(cwd: string, input: string) {
     const devDeps = Object.keys(pkg.devDependencies || {});
     const peerDeps = Object.keys(pkg.peerDependencies || {});
     printPanel("Dependency Scan", [
-      `${chalk.cyan("Runtime deps:")} ${runtimeDeps.length}`,
-      `${chalk.cyan("Dev deps:")} ${devDeps.length}`,
-      `${chalk.cyan("Peer deps:")} ${peerDeps.length}`,
+      `${chalk.cyan("Runtime dependencies:")} ${runtimeDeps.length}`,
+      `${chalk.cyan("Dev dependencies:")} ${devDeps.length}`,
+      `${chalk.cyan("Peer dependencies:")} ${peerDeps.length}`,
       `${chalk.cyan("Total:")} ${runtimeDeps.length + devDeps.length + peerDeps.length}`,
       "",
-      `${chalk.cyan("Unused:")} ${unusedDependencies.length > 0 ? chalk.red(unusedDependencies.length) : chalk.green("0")}`,
-      `${chalk.cyan("Heavy:")} ${heavyDependencies.length > 0 ? chalk.yellow(heavyDependencies.length) : chalk.green("0")}`
+      `${chalk.cyan("Unused dependencies:")} ${unusedDependencies.length > 0 ? chalk.red(unusedDependencies.length) : chalk.green("0")}`,
+      `${chalk.cyan("Heavy dependencies:")} ${heavyDependencies.length > 0 ? chalk.yellow(heavyDependencies.length) : chalk.green("0")}`
     ], "blue");
     if (unusedDependencies.length > 0) {
       const unusedLines = unusedDependencies.map(d => {
@@ -720,75 +798,90 @@ async function _runSlashCommand(cwd: string, input: string) {
   }
 
   if (command === "advanced") {
+    const scanLines = [
+      ["--changed", "Scan only modified/untracked files"],
+      ["--staged", "Scan only files ready to commit"],
+      ["--scan-images", "Discover heavy images during scan"],
+      ["--format html", "Generate a visual dashboard"],
+      ["--open", "Open the HTML report in your browser"]
+    ];
+    const fixLines = [
+      ["/fix --interactive", "Pick diffs one by one"],
+      ["/fix --apply", "Auto-fix everything safely"]
+    ];
+    const prLines = [
+      ["/review --changed", "Generate a code review body"],
+      ["/pr-summary", "Draft PR markdown summary"]
+    ];
+    const hiddenLines = [
+      ["Ctrl+Shift+S", "Open the Command Palette from anywhere"],
+      ["/images --generate", "Auto-convert heavy images to webp"]
+    ];
+
+    const pad = (rows: string[][]) => {
+      const maxLen = Math.max(...rows.map(r => r[0].length));
+      return rows.map(([k, v]) => `  ${chalk.yellow(k.padEnd(maxLen))}  ${chalk.dim(v)}`);
+    };
+
     printGrid([
-      {
-        title: "Supercharged Scan",
-        color: "cyan",
-        lines: [
-          chalk.yellow("--changed") + "       : Scan only modified/untracked files",
-          chalk.yellow("--staged") + "        : Scan only files ready to commit",
-          chalk.yellow("--scan-images") + "   : Discover heavy images during scan",
-          chalk.yellow("--format html") + "   : Generate a visual dashboard",
-          chalk.yellow("--open") + "          : Open the HTML report in your browser"
-        ]
-      },
-      {
-        title: "Surgical Fixes",
-        color: "green",
-        lines: [
-          chalk.yellow("/fix --interactive") + " : Pick diffs one by one (Space to select)",
-          chalk.yellow("/fix --apply") + "       : Auto-fix everything safely"
-        ]
-      },
-      {
-        title: "Pull Requests & Git",
-        color: "magenta",
-        lines: [
-          chalk.yellow("/review --changed") + "  : Generate a Code Review for your diff",
-          chalk.yellow("/pr-summary") + "        : Drafts the markdown for your GitHub PR"
-        ]
-      },
-      {
-        title: "Hidden Features",
-        color: "blue",
-        lines: [
-          chalk.yellow("Ctrl+Shift+S") + "       : Open the Command Palette from anywhere",
-          chalk.yellow("/images --generate") + " : Auto-convert heavy images to .webp"
-        ]
-      }
+      { title: "Supercharged Scan", color: "cyan", lines: pad(scanLines) },
+      { title: "Surgical Fixes", color: "green", lines: pad(fixLines) },
+      { title: "Pull Requests & Git", color: "magenta", lines: pad(prLines) },
+      { title: "Hidden Features", color: "blue", lines: pad(hiddenLines) }
     ]);
     printRelatedCommands("advanced");
     return { shouldExit: false };
   }
 
   if (command === "hotspots") {
-    const result = await runScanWorkflow(cwd);
+    const sortByDensity = readFlag(tokens, "--density");
+    const minScore = parseInt(readOption(tokens, "--min-score") || "0", 10);
+    const result = await runScanWorkflow(cwd, { command: "hotspots" });
+
+    printPanel("Run Output", [
+      `${chalk.cyan("Saved report:")} ${result.reportPath ? result.reportPath : "(not written)"}`,
+      "",
+      chalk.dim("Reports are saved under the shown path. To disable saving, run with --no-save.")
+    ], "cyan");
+
     const topN = 10;
-    const hotspots = buildHotspots(result.report, topN);
+    const hotspots = buildHotspots(result.report, cwd, topN, sortByDensity ? "density" : "score", Number.isFinite(minScore) ? minScore : 0);
     if (hotspots.length === 0) {
       printPanel("Hotspots", ["No hotspots found — no files with issues."], "green");
     } else {
       const totalFiles = result.report.files.length;
+      const headerFile = "  File";
+      const headerErr = "Err";
+      const headerWarn = "Warn";
+      const headerScore = "Score";
+      const headerDensity = "Dens";
+      const colFile = Math.max(...hotspots.map(h => h.filePath.length), headerFile.length - 2);
+      const colErr = Math.max(...hotspots.map(h => String(h.errors).length), headerErr.length);
+      const colWarn = Math.max(...hotspots.map(h => String(h.warnings).length), headerWarn.length);
+      const sortedLabel = sortByDensity ? "density" : "score";
       printPanel("Hotspots", [
-        `${chalk.dim(`Top ${Math.min(topN, hotspots.length)} of ${totalFiles} files`)}`,
+        `${chalk.dim(`Top ${Math.min(topN, hotspots.length)} of ${totalFiles} files — sorted by ${sortedLabel}${minScore > 0 ? `  min-score: ${minScore}` : ""}`)}`,
         "",
-        chalk.cyan("  File") + chalk.dim("                          Errors  Warnings  Score"),
-        ...hotspots.map(h =>
-          `  ${chalk.white(h.filePath.padEnd(38))} ${chalk.red(String(h.errors).padStart(4))}   ${chalk.yellow(String(h.warnings).padStart(5))}  ${chalk.bold(String(h.score).padStart(5))}`
-        )
+        `${chalk.cyan(headerFile)} ${chalk.dim("".padEnd(colFile - headerFile.length + 2, " ") + headerErr.padEnd(colErr + 2) + headerWarn.padEnd(colWarn + 2) + headerScore.padEnd(7) + headerDensity + "  Category")}`,
+        ...hotspots.map(h => {
+          const densityStr = h.density > 10 ? chalk.red(String(h.density)) : h.density > 3 ? chalk.yellow(String(h.density)) : chalk.white(String(h.density));
+          const lineStr = h.lineCount > 0 ? chalk.dim(`${h.lineCount}L`) : "";
+          return `  ${chalk.white(h.filePath.padEnd(colFile + 2))} ${chalk.red(String(h.errors).padStart(colErr))}  ${chalk.yellow(String(h.warnings).padStart(colWarn))}  ${chalk.bold(String(h.score).padStart(headerScore.length))}   ${densityStr.padStart(4)}  ${chalk.dim(h.topCategory)}${lineStr ? " " + lineStr : ""}`;
+        })
       ], "red");
+
       for (const hotspot of hotspots) {
         const file = result.report.files.find(f => f.filePath === hotspot.filePath);
         if (!file || file.messages.length === 0) continue;
         const msgLines: string[] = [];
+        let fixableCount = 0;
         for (const msg of file.messages) {
-          const loc = msg.line !== null ? chalk.gray(`:${msg.line}${msg.column !== null ? `:${msg.column}` : ""}`) : "";
+          if (msg.fixable) fixableCount++;
           const tag = msg.severity === 2 ? chalk.red("error") : msg.severity === 1 ? chalk.yellow("warn") : chalk.gray("info");
-          const rule = msg.ruleId ? chalk.cyan(msg.ruleId) : "";
-          const text = msg.message.length > 100 ? msg.message.slice(0, 100) + "…" : msg.message;
-          msgLines.push(`  ${tag} ${rule}${loc}  ${chalk.dim(text)}`);
+          msgLines.push(`  ${tag} ${formatDiagnosticLine(msg)}`);
         }
-        printPanel(`  ${hotspot.filePath}`, msgLines, "yellow");
+        const summary = [`${chalk.cyan("Score:")} ${hotspot.score}  ${chalk.red("Errors:")} ${hotspot.errors}  ${chalk.yellow("Warnings:")} ${hotspot.warnings}${fixableCount > 0 ? `  ${chalk.green("Fixable:")} ${fixableCount}` : ""}${hotspot.lineCount > 0 ? chalk.dim(`  ${hotspot.lineCount} lines`) : ""}${chalk.dim(`  ${hotspot.topCategory}`)}`];
+        printPanel(`  ${hotspot.filePath}`, [...summary, "", ...msgLines], "yellow");
       }
     }
     printRelatedCommands("hotspots");
@@ -796,16 +889,52 @@ async function _runSlashCommand(cwd: string, input: string) {
   }
 
   if (command === "review") {
+    let outPath: string | undefined = readOption(tokens, "--out");
+    const noSaveFlag = readFlag(tokens, "--no-save");
+    let chosenFormat: "json" | "markdown" | "html" | undefined = undefined;
+
+    if (!outPath && !noSaveFlag) {
+      try {
+        const cfg = loadConfig(cwd);
+        const defaultPreviewPath = getReportFile(cwd, cfg, undefined, undefined as any, "review");
+        const saveAnswer: any = await prompt({ type: "confirm", name: "save", message: `Save review report? (default path: ${defaultPreviewPath})`, initial: true } as any);
+        if (saveAnswer.save) {
+          chosenFormat = await askForFormat(tokens, readOption(tokens, "--format"));
+          outPath = getReportFile(cwd, cfg, undefined, chosenFormat, "review");
+        } else {
+          outPath = undefined;
+        }
+      } catch {
+        chosenFormat = await askForFormat(tokens, readOption(tokens, "--format"));
+        const cfg = loadConfig(cwd);
+        outPath = getReportFile(cwd, cfg, undefined, chosenFormat, "review");
+      }
+    } else if (noSaveFlag) {
+      outPath = undefined;
+    } else if (outPath) {
+      chosenFormat = await askForFormat(tokens, readOption(tokens, "--format"));
+    }
+
     const result = await runReviewWorkflow(cwd, {
       changed: readFlag(tokens, "--changed"),
       staged: readFlag(tokens, "--staged"),
-      out: readOption(tokens, "--out")
+      out: outPath,
+      format: chosenFormat,
+      writeReport: outPath ? undefined : false
     });
+
+    printPanel("Run Output", [
+      `${chalk.cyan("Saved report:")} ${result.reportPath ? result.reportPath : "(not written)"}`,
+      "",
+      chalk.dim("Reports are saved under the shown path. To disable saving, run with --no-save or set defaults.reportFile to an empty value in your better-ui config.")
+    ], "cyan");
+
     printPanel("Review Scope", [
       `${chalk.cyan("Scope:")} ${result.scope}`,
       `${chalk.cyan("Score:")} ${result.report.summary.score}/100`,
       `${chalk.cyan("Errors:")} ${chalk.red(String(result.report.summary.errors))}  ${chalk.cyan("Warnings:")} ${chalk.yellow(String(result.report.summary.warnings))}`,
       `${chalk.cyan("Files with issues:")} ${result.report.summary.filesWithIssues}`
+      ,chalk.dim(REVIEW_DRAFT)
     ], "cyan");
     console.log(`\n${result.body}\n`);
     printRelatedCommands(readFlag(tokens, "--changed") ? "review-changed" : readFlag(tokens, "--staged") ? "review-staged" : "review");
@@ -813,15 +942,43 @@ async function _runSlashCommand(cwd: string, input: string) {
   }
 
   if (command === "pr-summary") {
+    const format = await askForFormat(tokens, readOption(tokens, "--format"));
+
+    let outPath: string | undefined = readOption(tokens, "--out");
+    const noSaveFlag = readFlag(tokens, "--no-save");
+
+    if (!outPath && !noSaveFlag) {
+      try {
+        const cfg = loadConfig(cwd);
+        const defaultPath = getReportFile(cwd, cfg, undefined, format, "pr-summary");
+        const saveAnswer: any = await prompt({ type: "confirm", name: "save", message: `Save PR summary to ${defaultPath}?`, initial: true } as any);
+        if (saveAnswer.save) outPath = defaultPath; else outPath = undefined;
+      } catch {
+        outPath = undefined;
+      }
+    } else if (noSaveFlag) {
+      outPath = undefined;
+    }
+
     const result = await runPrSummaryWorkflow(cwd, {
       changed: readFlag(tokens, "--changed"),
       staged: readFlag(tokens, "--staged"),
-      out: readOption(tokens, "--out")
+      out: outPath,
+      format: format,
+      writeReport: outPath ? undefined : false
     });
+
+    printPanel("Run Output", [
+      `${chalk.cyan("Saved report:")} ${result.reportPath ? result.reportPath : "(not written)"}`,
+      "",
+      chalk.dim("Reports are saved under the shown path. To disable saving, run with --no-save or set defaults.reportFile to an empty value in your better-ui config.")
+    ], "cyan");
+
     printPanel("PR Summary", [
       `${chalk.cyan("Scope:")} ${result.scope}`,
       `${chalk.cyan("Score:")} ${result.report.summary.score}/100`,
-      `${chalk.cyan("Issues:")} ${result.report.summary.totalIssues} (${chalk.red(result.report.summary.errors)} errors, ${chalk.yellow(result.report.summary.warnings)} warnings)`
+      `${chalk.cyan("Issues:")} ${result.report.summary.totalIssues} (${chalk.red(result.report.summary.errors)} errors, ${chalk.yellow(result.report.summary.warnings)} warnings)`,
+      chalk.dim(PR_GUIDE)
     ], "cyan");
     console.log(`\n${result.body}\n`);
     printRelatedCommands("pr-summary");
@@ -833,64 +990,60 @@ async function _runSlashCommand(cwd: string, input: string) {
       changed: readFlag(tokens, "--changed"),
       staged: readFlag(tokens, "--staged")
     });
-    const a11yCount = report.files.reduce((sum, f) => sum + f.messages.filter(m => m.category === "accessibility").length, 0);
-    printPanel("Accessibility", [
-      `${chalk.cyan("Accessibility issues:")} ${a11yCount}`,
-      "",
-      ...report.files.flatMap(file => file.messages.slice(0, 3).map(message => {
-        const explanation = explainMessage(message);
-        return `${chalk.white(file.filePath)}  ${explanation.title}  ${chalk.dim("→ " + explanation.fix)}`;
-      })).slice(0, 12)
+    const a11yMessages = report.files.flatMap(f => f.messages);
+    const errorCount = a11yMessages.filter(m => m.severity === 2).length;
+    const warningCount = a11yMessages.filter(m => m.severity === 1).length;
+    const filesAffected = report.files.length;
+
+    printPanel("Accessibility Summary", [
+      `${chalk.cyan("Total issues:")} ${a11yMessages.length}  ${chalk.red("Errors:")} ${errorCount}  ${chalk.yellow("Warnings:")} ${warningCount}`,
+      `${chalk.cyan("Files affected:")} ${filesAffected}`
     ], "blue");
+
+    const ruleBreakdown = new Map<string, number>();
+    for (const m of a11yMessages) {
+      const rule = m.ruleId || "unknown";
+      ruleBreakdown.set(rule, (ruleBreakdown.get(rule) || 0) + 1);
+    }
+    if (ruleBreakdown.size > 0) {
+      const sortedRules = [...ruleBreakdown.entries()].sort((a, b) => b[1] - a[1]);
+      printPanel("By Rule", sortedRules.slice(0, 8).map(([rule, count]) =>
+        `  ${chalk.white(rule.padEnd(35))} ${chalk.cyan(String(count) + " issues")}`
+      ), "cyan");
+    }
+
+    for (const file of report.files.slice(0, 5)) {
+      const fileErrors = file.messages.filter(m => m.severity === 2).length;
+      const fileWarnings = file.messages.filter(m => m.severity === 1).length;
+      const fileLines: string[] = [];
+
+      if (fileErrors > 0) {
+        fileLines.push(`  ${chalk.red(`${fileErrors} errors`)}`);
+      }
+      if (fileWarnings > 0) {
+        fileLines.push(`  ${chalk.yellow(`${fileWarnings} warnings`)}`);
+      }
+
+      for (const msg of file.messages.slice(0, 4)) {
+        const expl = explainMessage(msg);
+        const lineRef = msg.line ? ` at :${msg.line}` : "";
+        fileLines.push(`  ${chalk.dim(msg.ruleId)}${chalk.dim(lineRef)}  ${expl.title}`);
+        fileLines.push(`    ${chalk.dim("→")} ${expl.fix}`);
+      }
+      if (file.messages.length > 4) {
+        fileLines.push(chalk.dim(`  … and ${file.messages.length - 4} more issues`));
+      }
+
+      const color: "red" | "yellow" | "green" = fileErrors > 0 ? "red" : fileWarnings > 0 ? "yellow" : "green";
+      const shortPath = file.filePath.length > 50 ? `...${file.filePath.slice(-47)}` : file.filePath;
+      printPanel(shortPath, fileLines, color);
+    }
+
+    if (report.files.length > 5) {
+      printPanel("Remaining Files", [`${chalk.dim(`${report.files.length - 5} more files with accessibility issues`)}`], "blue");
+    }
+
     printRelatedCommands("check-accessibility");
-    return { shouldExit: false };
-  }
-
-  if (command === "compare") {
-    const result = await runCompareWorkflow(cwd);
-    if (!result.delta || !result.previous) {
-      printPanel("Comparison", ["No previous snapshot exists yet. A baseline has now been saved."], "yellow");
-      printRelatedCommands("compare");
-      return { shouldExit: false };
-    }
-    const previousTime = result.previous.savedAt ? formatTimestamp(result.previous.savedAt) : "unknown";
-    printPanel("Comparison", [
-      `${chalk.dim("Previous: " + previousTime)}`,
-      `${chalk.cyan("Score:")} ${result.current.report.summary.score}/100 ${chalk.dim("(prev: " + result.previous.report.summary.score + ")")}  ${formatDelta(result.delta.scoreDelta)}`,
-      `${chalk.cyan("Errors:")} ${chalk.red(String(result.current.report.summary.errors))}  ${formatDelta(result.delta.errorDelta)}`,
-      `${chalk.cyan("Warnings:")} ${chalk.yellow(String(result.current.report.summary.warnings))}  ${formatDelta(result.delta.warningDelta)}`,
-      `${chalk.cyan("Files:")} ${result.current.report.summary.filesWithIssues}  ${formatDelta(result.delta.fileDelta)}`
-    ], "green");
-
-    const prevFiles = new Map(result.previous.report.files.map(f => [f.filePath, f]));
-    const currFiles = new Map(result.current.report.files.map(f => [f.filePath, f]));
-    const allPaths = new Set([...prevFiles.keys(), ...currFiles.keys()]);
-    const fileDeltas: { path: string; errors: number; warnings: number }[] = [];
-    for (const fp of allPaths) {
-      const prev = prevFiles.get(fp);
-      const curr = currFiles.get(fp);
-      const prevErrors = prev?.errorCount ?? 0;
-      const prevWarnings = prev?.warningCount ?? 0;
-      const currErrors = curr?.errorCount ?? 0;
-      const currWarnings = curr?.warningCount ?? 0;
-      if (prevErrors !== currErrors || prevWarnings !== currWarnings) {
-        fileDeltas.push({ path: fp, errors: currErrors - prevErrors, warnings: currWarnings - prevWarnings });
-      }
-    }
-    if (fileDeltas.length > 0) {
-      const sorted = fileDeltas.sort((a, b) => Math.abs(b.errors) + Math.abs(b.warnings) - (Math.abs(a.errors) + Math.abs(a.warnings)));
-      const diffLines = sorted.slice(0, 15).map(d => {
-        const parts = [chalk.white(d.path)];
-        if (d.errors !== 0) parts.push(chalk.dim("errors:") + formatDelta(d.errors));
-        if (d.warnings !== 0) parts.push(chalk.dim("warnings:") + formatDelta(d.warnings));
-        return `  ${parts.join("  ")}`;
-      });
-      if (sorted.length > 15) {
-        diffLines.push(chalk.dim(`  … and ${sorted.length - 15} more files`));
-      }
-      printPanel("File Changes", diffLines, "yellow");
-    }
-    printRelatedCommands("compare");
     return { shouldExit: false };
   }
 
@@ -902,6 +1055,9 @@ async function _runSlashCommand(cwd: string, input: string) {
       `${chalk.cyan("Errors:")} ${chalk.red(String(result.report.summary.errors))}  ${chalk.cyan("Warnings:")} ${chalk.yellow(String(result.report.summary.warnings))}`,
       `${chalk.cyan("Total issues:")} ${result.report.summary.totalIssues}`
     ], "magenta");
+
+    const shortSummary = result.summary || (result.body ? String(result.body).split("\n")[0] : "");
+    if (shortSummary) console.log(`${chalk.cyan("Short summary:")} ${chalk.dim(shortSummary)}\n`);
 
     const seenRules = new Set<string>();
     const explainLines: string[] = [];
@@ -980,10 +1136,179 @@ async function _runSlashCommand(cwd: string, input: string) {
     printPanel("Setup Complete", [
       `${chalk.cyan("Project:")} ${chalk.bold(config.projectName || path.basename(cwd))}`,
       `${chalk.cyan("Preset:")} ${config.preset || "custom"}`,
-      `${chalk.cyan("Report file:")} ${config.defaults?.reportFile || "report.json"}`,
+      `${chalk.cyan("Report file:")} ${config.defaults?.reportFile || "report.txt"}`,
       result.openTui ? "The command center is already open here." : `Run ${chalk.bold("/scan")} to generate a report.`
     ], "green");
+    printPanel("Note", [chalk.dim(INIT_NOTE)], "cyan");
     printRelatedCommands("init");
+    return { shouldExit: false };
+  }
+
+  if (command === "ui-audit") {
+    const start = performance.now();
+    const r = await auditUI(cwd);
+    const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+    printPanel("UI Surface Audit", [
+      `${chalk.cyan("Total files:")} ${r.totalFiles}`,
+      `${chalk.cyan("HTML:")} ${r.htmlCount}  ${chalk.cyan("CSS:")} ${r.cssCount}  ${chalk.cyan("JSX/TSX:")} ${r.jsxTsxCount}`,
+      `${chalk.cyan("Images:")} ${r.imageCount}  ${chalk.cyan("Fonts:")} ${r.fontCount}`,
+      `${chalk.cyan("Viewport <meta>:")} ${r.hasViewportMeta ? chalk.green("✓") : chalk.red("✗")}`,
+      `${chalk.cyan("Theme-color <meta>:")} ${r.hasThemeColorMeta ? chalk.green("✓") : chalk.red("✗")}`,
+      `${chalk.cyan("CSS methodology:")} ${r.cssMethodology.join(", ") || "none detected"}`,
+      `${chalk.cyan("Semantic elements:")} ${r.semanticElements.join(", ") || "none"}`,
+      `${chalk.cyan("Inline styles:")} ${r.hasInlineStyles ? chalk.yellow("present") : "none"}`,
+      `${chalk.cyan("Breakpoints:")} ${r.allBreakpoints.join(", ") || "none"}`,
+      `${chalk.cyan("Font loading:")} ${r.hasFontLoading ? chalk.green("✓") : chalk.dim("no @font-face")}`,
+      `${chalk.cyan("UI Score:")} ${r.uiScore}/100`,
+      "",
+      chalk.dim(`Completed in ${elapsed}s`)
+    ], "blue");
+    printRelatedCommands("ui-audit");
+    return { shouldExit: false };
+  }
+
+  if (command === "ui-colors") {
+    const start = performance.now();
+    const r = await scanColors(cwd);
+    const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+    const topColors = r.allColors.slice(0, 10).map(c =>
+      `  ${chalk.white(c.value)}  ×${c.count}  ${chalk.dim("(" + c.files.length + " files)")}`
+    );
+    const inconsistency = r.hasColorInconsistencies ? chalk.yellow("Detected") : "None";
+    printPanel("Color Palette", [
+      `${chalk.cyan("Unique colors:")} ${r.totalUnique}`,
+      `${chalk.cyan("Total declarations:")} ${r.totalDeclarations}`,
+      `${chalk.cyan("Tailwind classes:")} ${r.tailwindColors}`,
+      `${chalk.cyan("CSS custom props:")} ${r.cssCustomProperties}`,
+      `${chalk.cyan("Inconsistencies:")} ${inconsistency}`,
+      "",
+      chalk.dim("Top colors:"),
+      ...topColors,
+      r.allColors.length > 10 ? chalk.dim(`  … and ${r.allColors.length - 10} more`) : "",
+      "",
+      chalk.dim(`Completed in ${elapsed}s`)
+    ], "magenta");
+    printRelatedCommands("ui-colors");
+    return { shouldExit: false };
+  }
+
+  if (command === "ui-standards") {
+    const start = performance.now();
+    const r = await scanStandards(cwd);
+    const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+    const largeFileLines = r.largeFiles.length > 0
+      ? [chalk.dim("Large files:"), ...r.largeFiles.slice(0, 10).map(f => `  ${chalk.white(f)}`)]
+      : [];
+    printPanel("Standards Review", [
+      `${chalk.cyan("Component files:")} ${r.totalComponentFiles}`,
+      `${chalk.cyan("PascalCase:")} ${r.pascalCaseFiles}  ${chalk.cyan("kebab-case:")} ${r.kebabCaseFiles}`,
+      `${chalk.cyan("Default exports:")} ${r.defaultExports}  ${chalk.cyan("Named exports:")} ${r.namedExports}`,
+      `${chalk.cyan("Props interface:")} ${r.hasPropsInterface ? chalk.green("✓") : chalk.red("✗")}`,
+      `${chalk.cyan("Index files:")} ${r.hasIndexFiles}`,
+      `${chalk.cyan("Avg lines/component:")} ${r.avgLinesPerComponent.toFixed(1)}`,
+      `${chalk.cyan("Organization:")} ${r.organizationType}`,
+      "",
+      ...largeFileLines,
+      "",
+      chalk.dim(`Completed in ${elapsed}s`)
+    ], "cyan");
+    printRelatedCommands("ui-standards");
+    return { shouldExit: false };
+  }
+
+  if (command === "ui-typography") {
+    const start = performance.now();
+    const r = await scanTypography(cwd);
+    const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+    const topSizes = r.fontSizes.slice(0, 6).map(s => `  ${chalk.white(s.value)}  ×${s.count}`);
+    const topHeights = r.lineHeights.slice(0, 4).map(h => `  ${chalk.white(h.value)}  ×${h.count}`);
+    printPanel("Typography Audit", [
+      `${chalk.cyan("Files with typography:")} ${r.filesWithTypography}`,
+      `${chalk.cyan("Total declarations:")} ${r.totalFontDeclarations}`,
+      `${chalk.cyan("Unique font families:")} ${r.uniqueFontFamilies.length > 0 ? r.uniqueFontFamilies.join(", ") : "none detected"}`,
+      `${chalk.cyan("Custom @font-face:")} ${r.customFonts.length > 0 ? r.customFonts.join(", ") : "none"}`,
+      `${chalk.cyan("Missing line-height:")} ${r.missingLineHeight > 0 ? chalk.yellow(r.missingLineHeight + " files") : chalk.green("none")}`,
+      `${chalk.cyan("Tailwind typography:")} ${r.tailwindTypographyCount}`,
+      `${chalk.cyan("Inline typography:")} ${r.inlineTypographyCount}`,
+      "",
+      chalk.dim("Top font sizes:"),
+      ...topSizes,
+      r.fontSizes.length > 6 ? chalk.dim(`  … and ${r.fontSizes.length - 6} more`) : "",
+      "",
+      chalk.dim(`Completed in ${elapsed}s`)
+    ], "magenta");
+    if (topHeights.length > 0) {
+      printPanel("Line Heights", topHeights, "blue");
+    }
+    if (r.fontWeights.length > 0) {
+      const topWeights = r.fontWeights.slice(0, 6).map(w => `  ${chalk.white(w.value)}  ×${w.count}`);
+      printPanel("Font Weights", topWeights, "cyan");
+    }
+    if (r.letterSpacing.length > 0) {
+      const topSpacing = r.letterSpacing.slice(0, 4).map(l => `  ${chalk.white(l.value)}  ×${l.count}`);
+      printPanel("Letter Spacing", topSpacing, "yellow");
+    }
+    if (r.textTransform.length > 0) {
+      const topTransforms = r.textTransform.slice(0, 4).map(t => `  ${chalk.white(t.value)}  ×${t.count}`);
+      printPanel("Text Transform", topTransforms, "blue");
+    }
+    if (r.textDecoration.length > 0) {
+      const topDecor = r.textDecoration.slice(0, 4).map(d => `  ${chalk.white(d.value)}  ×${d.count}`);
+      printPanel("Text Decoration", topDecor, "blue");
+    }
+    if (r.recommendations.length > 0) {
+      const recLines = r.recommendations.map(rec => `  ${chalk.yellow("→")} ${rec}`);
+      printPanel("Recommendations", recLines, "yellow");
+    }
+    printRelatedCommands("ui-typography");
+    return { shouldExit: false };
+  }
+
+  if (command === "ui-spacing") {
+    const start = performance.now();
+    const r = await scanSpacing(cwd);
+    const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+    const topMargins = r.marginValues.slice(0, 6).map(m => `  ${chalk.white(m.value)}  ×${m.count}`);
+    const topPaddings = r.paddingValues.slice(0, 6).map(p => `  ${chalk.white(p.value)}  ×${p.count}`);
+    const topGaps = r.gapValues.slice(0, 4).map(g => `  ${chalk.white(g.value)}  ×${g.count}`);
+    const topPos = r.positionValues.slice(0, 4).map(p => `  ${chalk.white(p.value)}  ×${p.count}`);
+    printPanel("Spacing Scan", [
+      `${chalk.cyan("Files with spacing:")} ${r.filesWithSpacing}`,
+      `${chalk.cyan("Total declarations:")} ${r.totalSpacingDeclarations}`,
+      `${chalk.cyan("Tailwind spacing:")} ${r.tailwindSpacingCount}`,
+      `${chalk.cyan("Inline spacing:")} ${r.inlineSpacingCount}`,
+      `${chalk.cyan("Position properties:")} ${r.positionValues.length > 0 ? r.positionValues.reduce((s, p) => s + p.count, 0) : 0}`,
+      "",
+      chalk.dim("Unit consistency:"),
+      r.unitInconsistencies.length > 0
+        ? `  ${chalk.yellow(r.unitInconsistencies.length + " files mix units")}`
+        : `  ${chalk.green("consistent")}`,
+      ...(r.filesWithExcessiveUniqueValues.length > 0
+        ? [`  ${chalk.yellow(r.filesWithExcessiveUniqueValues.length + " files with >10 unique spacing values")}`]
+        : []),
+      "",
+      chalk.dim("Recommendations:"),
+      ...(r.recommendations.length > 0 ? r.recommendations.map(rec => `  ${chalk.yellow("→")} ${rec}`) : ["  " + chalk.green("none")]),
+      "",
+      chalk.dim(`Completed in ${elapsed}s`)
+    ], "blue");
+    if (topMargins.length > 0) {
+      printPanel("Top Margin Values", topMargins, "yellow");
+    }
+    if (topPaddings.length > 0) {
+      printPanel("Top Padding Values", topPaddings, "cyan");
+    }
+    if (topGaps.length > 0) {
+      printPanel("Gap Values", topGaps, "green");
+    }
+    if (topPos.length > 0) {
+      printPanel("Position Values", topPos, "red");
+    }
+    if (r.unitInconsistencies.length > 0) {
+      const files = r.unitInconsistencies.slice(0, 5).map(f => `  ${chalk.white(f)}`);
+      printPanel("Files with Mixed Units (sample)", files, "yellow");
+    }
+    printRelatedCommands("ui-spacing");
     return { shouldExit: false };
   }
 
@@ -1099,7 +1424,8 @@ export async function runTui() {
             `${chalk.bold("/scan")} ${chalk.dim("Full project scan")}`,
             `${chalk.bold("/fix --interactive")} ${chalk.dim("Pick fix hunks safely")}`,
             `${chalk.bold("/review --changed")} ${chalk.dim("Review current diff")}`,
-            `${chalk.bold("/images --generate")} ${chalk.dim("Create WebP assets")}`
+            `${chalk.bold("/images --generate")} ${chalk.dim("Create WebP assets")}`,
+            `${chalk.bold("/ui-audit")} ${chalk.dim("Scan UI structure and patterns")}`
           ]
         },
         {

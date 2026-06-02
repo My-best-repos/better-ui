@@ -48,9 +48,11 @@ export interface ScanReport {
   };
 }
 
-export interface ScanSnapshot {
-  savedAt: string;
+export interface ExplainResult {
+  summary: string;
   report: ScanReport;
+  target: string;
+  body: string;
 }
 
 export interface HealthReport {
@@ -71,12 +73,18 @@ export interface HealthReport {
     detail: string;
     impact: IssueImpact;
   }>;
-  hotspots: Array<{
-    filePath: string;
-    score: number;
-    errors: number;
-    warnings: number;
-  }>;
+  hotspots: HotspotEntry[];
+}
+
+export interface HotspotEntry {
+  filePath: string;
+  score: number;
+  errors: number;
+  warnings: number;
+  fixableCount: number;
+  lineCount: number;
+  density: number;
+  topCategory: string;
 }
 
 export interface FixPreview {
