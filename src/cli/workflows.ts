@@ -2,16 +2,16 @@ import fs from "fs";
 import path from "path";
 import { getExtensions, getProjectLabel, getReportFile, loadConfig } from "../config";
 import { getCurrentBranch, getChangedFiles, isGitRepository } from "../gitUtils";
-import { loadLatestSnapshot, saveSnapshot } from "../history";
-import { buildHealthReport, buildMarkdownSummary, buildReviewBody, compareReports } from "../insights";
+import { buildHealthReport, buildMarkdownSummary, buildReviewBody } from "../insights";
 import { resolveProjectPath } from "../projectPaths";
 import { writeHtmlReport } from "../reporters/htmlReporter";
 import { writeJsonReport } from "../reporters/jsonReporter";
+import { writeMarkdownReport } from "../reporters/markdownWriter";
 import { buildScanReport } from "../reporters/reportUtils";
 import { scanImages } from "../scanners/imageScanner";
 import { applyEslintFixes, applyFixHunks, applyFixPreviews, previewEslintFixes, scanProject } from "../scanners/eslintScanner";
 import { ScanReport } from "../types";
-import { buildExplainSummary } from "../explanations";
+import { buildExplainSummary, explainMessage } from "../explanations";
 
 interface ScopeOptions {
   changed?: boolean;
@@ -39,10 +39,10 @@ function resolveScopedFiles(projectRoot: string, options?: ScopeOptions) {
   return undefined;
 }
 
-export async function runScanWorkflow(projectRoot: string, options?: ScopeOptions & { out?: string; ext?: string[]; format?: "json" | "markdown" | "html"; saveHistory?: boolean }) {
+export async function runScanWorkflow(projectRoot: string, options?: ScopeOptions & { out?: string; ext?: string[]; format?: "json" | "markdown" | "html"; writeReport?: boolean; command?: string }) {
   const config = loadConfig(projectRoot);
   const exts = getExtensions(config, options?.ext);
-  const reportPath = getReportFile(projectRoot, config, options?.out, options?.format);
+  const reportPath = options?.writeReport === false ? undefined : getReportFile(projectRoot, config, options?.out, options?.format, options?.command);
   const projectLabel = getProjectLabel(projectRoot, config);
   const scope = resolveScope(options);
   const scopedFiles = resolveScopedFiles(projectRoot, options);
@@ -51,21 +51,24 @@ export async function runScanWorkflow(projectRoot: string, options?: ScopeOption
     scope,
     metadata: {
       projectName: projectLabel,
-      reportFile: path.relative(projectRoot, reportPath),
+      reportFile: reportPath ? path.relative(projectRoot, reportPath) : "(not written)",
       extensions: exts
     }
   });
 
-  if (options?.format === "html") {
-    writeHtmlReport(projectRoot, reportPath, report);
-  } else if (options?.format !== "markdown") {
-    writeJsonReport(projectRoot, reportPath, report);
-  } else {
-    fs.writeFileSync(resolveProjectPath(projectRoot, reportPath, "Markdown report output"), buildMarkdownSummary(report, `${projectLabel} Report`), "utf8");
+  let actualReportPath = reportPath;
+  if (options?.writeReport !== false && reportPath) {
+    if (options?.format === "html") {
+      await writeHtmlReport(projectRoot, reportPath, report);
+      actualReportPath = reportPath;
+    } else if (options?.format !== "markdown") {
+      actualReportPath = writeJsonReport(projectRoot, reportPath, report);
+    } else {
+      actualReportPath = await writeMarkdownReport(projectRoot, reportPath, buildMarkdownSummary(report, `${projectLabel} Report`));
+    }
   }
 
-  const snapshotPath = options?.saveHistory === false ? null : saveSnapshot(projectRoot, report);
-  return { projectLabel, reportPath, report, snapshotPath, scopedFiles, isGitRepo: isGitRepository(projectRoot) };
+  return { projectLabel, reportPath: actualReportPath, report, scopedFiles, isGitRepo: isGitRepository(projectRoot) };
 }
 
 export async function runFixWorkflow(projectRoot: string, options?: ScopeOptions & { apply?: boolean }) {
@@ -109,7 +112,7 @@ export async function applyInteractiveHunkSelection(projectRoot: string, preview
 }
 
 export async function runHealthWorkflow(projectRoot: string) {
-  const scan = await runScanWorkflow(projectRoot);
+  const scan = await runScanWorkflow(projectRoot, { command: "health" });
   const images = await scanImages(projectRoot);
   const health = buildHealthReport(scan.report, images);
   return { ...scan, images, health };
@@ -144,33 +147,33 @@ export async function runDoctorWorkflow(projectRoot: string) {
   };
 }
 
-export async function runCompareWorkflow(projectRoot: string) {
-  const previous = loadLatestSnapshot(projectRoot);
-  const current = await runScanWorkflow(projectRoot);
-  if (!previous) {
-    return { current, previous: null, delta: null };
-  }
-  return { current, previous, delta: compareReports(previous.report, current.report) };
-}
-
-export async function runReviewWorkflow(projectRoot: string, options?: ScopeOptions & { out?: string }) {
+export async function runReviewWorkflow(projectRoot: string, options?: ScopeOptions & { out?: string; format?: "json" | "markdown" | "html"; writeReport?: boolean }) {
   const scope = resolveScope(options);
-  const scan = await runScanWorkflow(projectRoot, { ...options, saveHistory: false });
+  const scan = await runScanWorkflow(projectRoot, { ...options, command: "review" });
   const branch = getCurrentBranch(projectRoot) || undefined;
   const body = buildReviewBody(scan.report, branch);
+
   if (options?.out) {
-    fs.writeFileSync(resolveProjectPath(projectRoot, options.out, "Review output"), body, "utf8");
+    const reportPath = options.out;
+    if (options.format === "html") {
+      await writeHtmlReport(projectRoot, reportPath, scan.report as any);
+    } else if (options.format !== "markdown") {
+      await writeJsonReport(projectRoot, reportPath, scan.report as any);
+    } else {
+      await writeMarkdownReport(projectRoot, reportPath, body, { keepTxt: true });
+    }
   }
+
   return { ...scan, scope, body };
 }
 
-export async function runPrSummaryWorkflow(projectRoot: string, options?: ScopeOptions & { out?: string }) {
-  const review = await runReviewWorkflow(projectRoot, { changed: options?.changed ?? !options?.staged, staged: options?.staged, out: options?.out });
+export async function runPrSummaryWorkflow(projectRoot: string, options?: ScopeOptions & { out?: string; format?: "json" | "markdown" | "html"; writeReport?: boolean }) {
+  const review = await runReviewWorkflow(projectRoot, { changed: options?.changed ?? !options?.staged, staged: options?.staged, out: options?.out, format: options?.format, writeReport: options?.writeReport });
   return review;
 }
 
 export async function runAccessibilityWorkflow(projectRoot: string, options?: ScopeOptions) {
-  const scan = await runScanWorkflow(projectRoot, { ...options, saveHistory: false });
+  const scan = await runScanWorkflow(projectRoot, { ...options, command: "check-accessibility", writeReport: false });
   const files = scan.report.files
     .map(file => ({
       ...file,
@@ -191,28 +194,77 @@ function readReportFile(filePath: string) {
   return JSON.parse(fs.readFileSync(filePath, "utf8")) as ScanReport;
 }
 
-export async function runExplainWorkflow(projectRoot: string, target?: string) {
+export async function runExplainWorkflow(projectRoot: string, target?: string): Promise<import("../types").ExplainResult> {
   if (target) {
     const resolvedTarget = resolveProjectPath(projectRoot, target, "Explain target");
-    if (fs.existsSync(resolvedTarget) && path.extname(resolvedTarget).toLowerCase() === ".json") {
-      const report = readReportFile(resolvedTarget);
-      return { summary: buildExplainSummary(report), report, target: resolvedTarget };
-    }
+      if (fs.existsSync(resolvedTarget) && /\.(json|txt)$/i.test(path.extname(resolvedTarget))) {
+        const report = readReportFile(resolvedTarget);
+      const summary = buildExplainSummary(report);
+      // Build expanded per-rule explanations
+      const explained = new Map<string, string>();
+      for (const file of report.files) {
+        for (const msg of file.messages) {
+          const key = msg.ruleId || `general:${msg.message.slice(0, 40)}`;
+          if (explained.has(key)) continue;
+          const ex = explainMessage(msg);
+          const block = `${ex.title}\nWhy: ${ex.why}\nFix: ${ex.fix}\n`;
+          explained.set(key, block);
+        }
+      }
+      const details = [...explained.values()].join("\n");
+      const body = summary + "\n\n" + details;
+      return { summary, report, target: resolvedTarget, body };
+      }
 
-    const scan = await runScanWorkflow(projectRoot, { saveHistory: false });
-    return {
-      summary: buildExplainSummary(scan.report, path.relative(projectRoot, resolvedTarget)),
-      report: scan.report,
-      target: resolvedTarget
-    };
+    const scan = await runScanWorkflow(projectRoot, { command: "explain", writeReport: false });
+    const summary = buildExplainSummary(scan.report, path.relative(projectRoot, resolvedTarget));
+    const explained = new Map<string, string>();
+    for (const file of scan.report.files) {
+      for (const msg of file.messages) {
+        const key = msg.ruleId || `general:${msg.message.slice(0, 40)}`;
+        if (explained.has(key)) continue;
+        const ex = explainMessage(msg);
+        const block = `${ex.title}\nWhy: ${ex.why}\nFix: ${ex.fix}\n`;
+        explained.set(key, block);
+      }
+    }
+    const details = [...explained.values()].join("\n");
+    const body = summary + "\n\n" + details;
+    return { summary, report: scan.report, target: resolvedTarget, body };
   }
 
   const defaultReportPath = getReportFile(projectRoot, loadConfig(projectRoot));
   if (fs.existsSync(defaultReportPath)) {
     const report = readReportFile(defaultReportPath);
-    return { summary: buildExplainSummary(report), report, target: defaultReportPath };
+    const summary = buildExplainSummary(report);
+    const explained = new Map<string, string>();
+    for (const file of report.files) {
+      for (const msg of file.messages) {
+        const key = msg.ruleId || `general:${msg.message.slice(0, 40)}`;
+        if (explained.has(key)) continue;
+        const ex = explainMessage(msg);
+        const block = `${ex.title}\nWhy: ${ex.why}\nFix: ${ex.fix}\n`;
+        explained.set(key, block);
+      }
+    }
+    const details = [...explained.values()].join("\n");
+    const body = summary + "\n\n" + details;
+    return { summary, report, target: defaultReportPath, body };
   }
 
-  const scan = await runScanWorkflow(projectRoot, { saveHistory: false });
-  return { summary: buildExplainSummary(scan.report), report: scan.report, target: defaultReportPath };
+  const scan = await runScanWorkflow(projectRoot, { command: "explain", writeReport: false });
+  const summary = buildExplainSummary(scan.report);
+  const explained = new Map<string, string>();
+  for (const file of scan.report.files) {
+    for (const msg of file.messages) {
+      const key = msg.ruleId || `general:${msg.message.slice(0, 40)}`;
+      if (explained.has(key)) continue;
+      const ex = explainMessage(msg);
+      const block = `${ex.title}\nWhy: ${ex.why}\nFix: ${ex.fix}\n`;
+      explained.set(key, block);
+    }
+  }
+  const details = [...explained.values()].join("\n");
+  const body = summary + "\n\n" + details;
+  return { summary, report: scan.report, target: defaultReportPath, body };
 }

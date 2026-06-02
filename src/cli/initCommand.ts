@@ -84,7 +84,7 @@ export async function runInit(projectRoot: string, options?: { preset?: string }
   };
 
   const configPath = getConfigPath(projectRoot);
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+  await import("../reporters/markdownWriter").then(m => m.writeMarkdownReport(projectRoot, configPath, JSON.stringify(config, null, 2), { keepTxt: true }));
 
   if (responses.addScripts) {
     const pkgPath = path.join(projectRoot, "package.json");
@@ -101,7 +101,7 @@ export async function runInit(projectRoot: string, options?: { preset?: string }
         pkg.scripts["better-ui:pr-summary"] = "better-ui-cli /pr-summary --out pr-summary.md";
         pkg.scripts["better-ui:init"] = "better-ui-cli /init";
         pkg.scripts["better-ui:tui"] = "better-ui-cli /menu";
-        fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2), "utf8");
+        await import("../reporters/markdownWriter").then(m => m.writeMarkdownReport(projectRoot, pkgPath, JSON.stringify(pkg, null, 2), { keepTxt: true }));
         console.log("Added scripts to package.json: better-ui:scan, better-ui:fix, better-ui:health, better-ui:doctor, better-ui:a11y, better-ui:review, better-ui:pr-summary, better-ui:init, better-ui:tui");
       } catch (err) {
         console.warn("Could not modify package.json:", err);
