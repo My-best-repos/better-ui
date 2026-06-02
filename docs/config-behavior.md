@@ -12,7 +12,7 @@ Typical fields:
   "projectName": "my-project",
   "preset": "next",
   "defaults": {
-    "reportFile": "better-ui-report.html",
+    "reportFile": "better-ui-report.txt",
     "extensions": [".js", ".jsx", ".ts", ".tsx"]
   },
   "scripts": {
@@ -27,6 +27,7 @@ Key behaviors:
 - `better-ui-cli /init` will create `better-ui.config.json` and may inject informational `better-ui:*` scripts into the target project's `package.json`.
 - Commands read `better-ui.config.json` for defaults such as `projectName`, `preset`, `defaults.reportFile`, and `defaults.extensions`.
 - Scripts written to `package.json` are informational only; the CLI does not execute or modify those script strings dynamically.
+- When no `--out` or `defaults.reportFile` is set, JSON-format reports default to `report.txt`.
 
 Path safety:
 

@@ -48,7 +48,7 @@ This keeps contributor workflows and release workflows aligned.
 
 - If you changed slash-command parsing or the command catalog, run `pnpm test:ci` and smoke-test `/commands`.
 - If you changed packaging, docs for installation, or binary behavior, run `pnpm pack:dry-run` and `node ./bin/better-ui.js /commands`.
-- If you changed scanners or reporters, run a real scan such as `npx ts-node src/cli.ts /scan --format json --out tmp-report.json`.
+- If you changed scanners or reporters, run a real scan such as `npx ts-node src/cli.ts /scan --format json --out tmp-report.txt`.
 
 ## Notes
 

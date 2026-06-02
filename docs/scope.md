@@ -26,14 +26,14 @@ Quick directory layout:
 
 - `src/` - application code (scanners, reporters, CLI, TUI, helpers)
 - `bin/` - light wrapper for local executable
-- `.better-ui/` - runtime outputs (history snapshots, images)
+- `.better-ui/` - runtime outputs (images)
 - `docs/` - human- and machine-oriented documentation (split from AGENTS.md)
 
 Quick start (developer):
 
 1. `pnpm install`
 2. `npx tsc --noEmit` (typecheck)
-3. `npx ts-node src/cli.ts /scan --format json --out report.json`
+3. `npx ts-node src/cli.ts /scan --format json --out report.txt`
 
 For automated agents / bots:
 

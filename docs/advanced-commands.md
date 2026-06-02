@@ -15,7 +15,7 @@ npx ts-node src/cli.ts /advanced
 ### Supercharged Scans (`/scan`)
 - `--scan-images`: Groups your image optimization scan with your code scan.
 - `--top <n>`: Increase or decrease the number of "Hotspots" (highest technical debt files) shown in your summary.
-- `--skip-history`: Prevents the snapshot from being saved in `.better-ui/history/latest.json`. Excellent for ephemeral CI runs.
+- `--no-save`: Prevents the report from being written to disk. Excellent for ephemeral CI runs.
 - `--open`: If `--format html` is used, this tells the OS to automatically pop open your default browser to view the generated dashboard.
 - `--changed` and `--staged`: Scope the scan to the current git diff instead of the whole project.
 
