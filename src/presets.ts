@@ -13,7 +13,7 @@ export const PRESETS: Preset[] = [
     id: "react",
     label: "React",
     description: "Typical React app (CRA / Vite / Next)",
-    reportFile: "better-ui-report.json",
+    reportFile: "better-ui-report.txt",
     extensions: [".js", ".jsx", ".ts", ".tsx"],
     scanCommand: "better-ui-cli /scan",
     fixCommand: "better-ui-cli /fix --apply"
@@ -22,7 +22,7 @@ export const PRESETS: Preset[] = [
     id: "next",
     label: "Next.js",
     description: "Next.js application conventions",
-    reportFile: "better-ui-report.json",
+    reportFile: "better-ui-report.txt",
     extensions: [".js", ".jsx", ".ts", ".tsx"],
     scanCommand: "better-ui-cli /scan",
     fixCommand: "better-ui-cli /fix --apply"
@@ -31,7 +31,7 @@ export const PRESETS: Preset[] = [
     id: "vite",
     label: "Vite",
     description: "Vite-powered app",
-    reportFile: "better-ui-report.json",
+    reportFile: "better-ui-report.txt",
     extensions: [".js", ".jsx", ".ts", ".tsx"],
     scanCommand: "better-ui-cli /scan",
     fixCommand: "better-ui-cli /fix --apply"
@@ -40,7 +40,7 @@ export const PRESETS: Preset[] = [
     id: "landing-page",
     label: "Landing Page",
     description: "Simple static landing page projects",
-    reportFile: "better-ui-report.json",
+    reportFile: "better-ui-report.txt",
     extensions: [".js", ".jsx"],
     scanCommand: "better-ui-cli /scan",
     fixCommand: "better-ui-cli /fix --apply"
@@ -49,7 +49,7 @@ export const PRESETS: Preset[] = [
     id: "typescript-library",
     label: "TypeScript Library",
     description: "Library published in TypeScript",
-    reportFile: "better-ui-report.json",
+    reportFile: "better-ui-report.txt",
     extensions: [".ts", ".tsx"],
     scanCommand: "better-ui-cli /scan",
     fixCommand: "better-ui-cli /fix --apply"
