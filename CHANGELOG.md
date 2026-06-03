@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.2.0](https://github.com/My-best-repos/better-ui/compare/v1.1.0...v1.2.0) (2026-06-03)
+
+
+### Features
+
+* **cli:** refactor CLI workflows and commands for better structure ([6fffdc7](https://github.com/My-best-repos/better-ui/commit/6fffdc7a9fec9fd4e6e8c671b703f218500d0b17))
+* **reporters:** update reporter implementations and related components ([9c1b782](https://github.com/My-best-repos/better-ui/commit/9c1b782ab8a7a4d3243cad97a58070a305f98c45))
+* **tui:** refine command output and docs ([6bd95f8](https://github.com/My-best-repos/better-ui/commit/6bd95f8edcc34598875f5be7047d4d27c7a4db45))
+* **tui:** update TUI app and types for improved output ([ed91fa2](https://github.com/My-best-repos/better-ui/commit/ed91fa2c7c612691fba2a6d4def6dde836fba855))
+* **ui:** add new UI-related source files (commandText, markdownWriter, uiTools) ([93206e9](https://github.com/My-best-repos/better-ui/commit/93206e9c4702fd3cd4d953c22787f112ddb000af))
+
+
+### Bug Fixes
+
+* **test:** configure global test timeout for CI stability ([4d27bc3](https://github.com/My-best-repos/better-ui/commit/4d27bc3fdd34b862e65374c69cc807e0765f41e1))
+
 ## [1.1.0](https://github.com/My-best-repos/better-ui/compare/v1.0.1...v1.1.0) (2026-06-01)
 
 
