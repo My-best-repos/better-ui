@@ -24,19 +24,19 @@ const RELATED_COMMANDS: Record<string, RelatedEntry[]> = {
     { command: "/health", description: "Category scores and priorities" },
     { command: "/fix", description: "Preview or apply autofixes" },
     { command: "/hotspots", description: "Worst files by issue density" },
-    { command: "/compare", description: "Diff against last snapshot" }
+    { command: "/ui-audit", description: "Audit the UI surface" }
   ],
   "scan-changed": [
     { command: "/review --changed", description: "Review only modified files" },
     { command: "/fix --changed", description: "Preview fixes for modified files" },
     { command: "/pr-summary", description: "Draft a PR summary from changes" },
-    { command: "/compare", description: "Compare current state vs snapshot" }
+    { command: "/scan", description: "Re-scan the project" }
   ],
   "scan-staged": [
     { command: "/review --staged", description: "Review only staged files" },
     { command: "/fix --staged", description: "Preview fixes for staged files" },
     { command: "/pr-summary --staged", description: "Draft summary for staged work" },
-    { command: "/compare", description: "Compare current state vs snapshot" }
+    { command: "/scan --staged", description: "Re-scan staged files" }
   ],
   "fix-preview": [
     { command: "/fix --apply", description: "Write the safe autofixes" },
@@ -46,15 +46,15 @@ const RELATED_COMMANDS: Record<string, RelatedEntry[]> = {
   ],
   "fix-apply": [
     { command: "/scan", description: "Measure the new score" },
-    { command: "/compare", description: "See what improved vs snapshot" },
     { command: "/review --changed", description: "Review the written changes" },
-    { command: "/pr-summary", description: "Summarize the updated branch" }
+    { command: "/pr-summary", description: "Summarize the updated branch" },
+    { command: "/health", description: "Check updated health score" }
   ],
   "fix-interactive": [
     { command: "/fix --apply", description: "Apply all remaining safe fixes" },
     { command: "/scan", description: "Re-scan after selected hunks" },
     { command: "/review --changed", description: "Review the chosen edits" },
-    { command: "/compare", description: "Check delta vs last snapshot" }
+    { command: "/health", description: "Check updated health score" }
   ],
   "doctor": [
     { command: "/init", description: "Generate or refresh config" },
@@ -89,38 +89,32 @@ const RELATED_COMMANDS: Record<string, RelatedEntry[]> = {
   "review": [
     { command: "/pr-summary", description: "Draft the PR body from findings" },
     { command: "/fix", description: "Address issues before committing" },
-    { command: "/compare", description: "Measure branch impact vs snapshot" },
-    { command: "/scan", description: "Run a full scan outside git scope" }
+    { command: "/scan", description: "Run a full scan outside git scope" },
+    { command: "/ui-audit", description: "Audit the UI surface" }
   ],
   "review-changed": [
     { command: "/fix --changed", description: "Preview fixes only for current diff" },
     { command: "/pr-summary", description: "Turn the diff into PR markdown" },
-    { command: "/compare", description: "Measure branch impact vs snapshot" },
-    { command: "/scan --changed", description: "Re-scan only changed files" }
+    { command: "/scan --changed", description: "Re-scan only changed files" },
+    { command: "/ui-standards", description: "Check component standards" }
   ],
   "review-staged": [
     { command: "/fix --staged", description: "Preview fixes only for staged files" },
     { command: "/pr-summary --staged", description: "Summarize staged work" },
-    { command: "/compare", description: "Measure staged impact vs snapshot" },
-    { command: "/scan --staged", description: "Re-scan only staged files" }
+    { command: "/scan --staged", description: "Re-scan only staged files" },
+    { command: "/ui-colors", description: "Scan color palette" }
   ],
   "pr-summary": [
     { command: "/review --changed", description: "Generate a review-style companion" },
-    { command: "/compare", description: "Show snapshot delta in the branch" },
     { command: "/scan", description: "Rebuild the report after edits" },
-    { command: "/commands", description: "Browse more automation flows" }
+    { command: "/commands", description: "Browse more automation flows" },
+    { command: "/ui-audit", description: "Audit the UI surface" }
   ],
   "check-accessibility": [
     { command: "/explain", description: "See why the a11y rules matter" },
     { command: "/fix", description: "Preview safe fixes in the same scope" },
     { command: "/health", description: "Check accessibility score impact" },
     { command: "/review --changed", description: "Review the current accessibility diff" }
-  ],
-  "compare": [
-    { command: "/hotspots", description: "Focus the biggest remaining files" },
-    { command: "/review --changed", description: "Review the current diff" },
-    { command: "/pr-summary", description: "Summarize the branch impact" },
-    { command: "/scan", description: "Run a fresh full scan" }
   ],
   "explain": [
     { command: "/fix", description: "Preview fixes for explained issues" },
@@ -135,10 +129,10 @@ const RELATED_COMMANDS: Record<string, RelatedEntry[]> = {
     { command: "/doctor", description: "Check wider project readiness" }
   ],
   "images-generate": [
-    { command: "/compare", description: "Measure the new project state" },
     { command: "/scan --scan-images", description: "Re-scan image payload" },
     { command: "/health", description: "See updated image weight impact" },
-    { command: "/review --changed", description: "Review generated assets" }
+    { command: "/review --changed", description: "Review generated assets" },
+    { command: "/ui-audit", description: "Audit the UI surface" }
   ],
   "init": [
     { command: "/scan", description: "Generate the first report" },
@@ -151,6 +145,36 @@ const RELATED_COMMANDS: Record<string, RelatedEntry[]> = {
     { command: "/scan", description: "Run the main analysis command" },
     { command: "/menu", description: "Use the interactive command center" },
     { command: "/review --changed", description: "Open a review-oriented branch flow" }
+  ],
+  "ui-audit": [
+    { command: "/ui-colors", description: "Scan color palette alongside the audit" },
+    { command: "/ui-standards", description: "Check component organization next" },
+    { command: "/health", description: "Cross-reference UI score with health" },
+    { command: "/scan", description: "Run full ESLint scan for deeper issues" }
+  ],
+  "ui-colors": [
+    { command: "/ui-audit", description: "Full UI surface audit" },
+    { command: "/images", description: "Check image weight alongside colors" },
+    { command: "/health", description: "See color complexity in health context" },
+    { command: "/scan --scan-images", description: "Include images in full scan" }
+  ],
+  "ui-standards": [
+    { command: "/ui-audit", description: "Audit the full UI surface" },
+    { command: "/doctor", description: "Check config and scripts for standards" },
+    { command: "/scan --changed", description: "Scan standards for modified files" },
+    { command: "/health", description: "Review health alongside standards" }
+  ],
+  "ui-typography": [
+    { command: "/ui-audit", description: "Full UI surface audit" },
+    { command: "/ui-colors", description: "Scan color palette" },
+    { command: "/ui-spacing", description: "Check spacing patterns" },
+    { command: "/images", description: "Inspect font file weight" }
+  ],
+  "ui-spacing": [
+    { command: "/ui-typography", description: "Audit typography alongside spacing" },
+    { command: "/ui-standards", description: "Check component organization" },
+    { command: "/ui-audit", description: "Full UI surface audit" },
+    { command: "/health", description: "Review health score impact" }
   ]
 };
 

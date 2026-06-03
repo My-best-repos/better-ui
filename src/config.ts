@@ -37,12 +37,31 @@ export function getProjectLabel(projectRoot: string, config: BetterUiConfig) {
   return config.projectName?.trim() || path.basename(projectRoot) || "better-ui";
 }
 
-export function getReportFile(projectRoot: string, config: BetterUiConfig, explicitOut?: string, format?: "json" | "markdown" | "html") {
-  const fallback = format === "html" ? "report.html" : format === "markdown" ? "report.md" : "report.json";
+export function getReportFile(projectRoot: string, config: BetterUiConfig, explicitOut?: string, format?: "json" | "markdown" | "html", command?: string) {
+  if (explicitOut) {
+    return resolveProjectPath(projectRoot, explicitOut, "Report output");
+  }
+
+  if (command) {
+    const now = new Date();
+    const y = now.getFullYear();
+    const mo = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    const h = String(now.getHours()).padStart(2, "0");
+    const mi = String(now.getMinutes()).padStart(2, "0");
+    const s = String(now.getSeconds()).padStart(2, "0");
+    const ts = `${y}-${mo}-${d}T${h}${mi}${s}`;
+    const ext = format === "html" ? "html" : format === "markdown" ? "md" : "json";
+    const relPath = path.join("reports", command, `${command}-${ts}.${ext}`);
+    const fullPath = resolveProjectPath(projectRoot, relPath, "Report output");
+    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    return fullPath;
+  }
+
+  const fallback = format === "html" ? "report.html" : format === "markdown" ? "report.md" : "report.txt";
   const configuredDefault = config.defaults?.reportFile;
-  const configuredPath = explicitOut
-    || (configuredDefault && format === "html" && configuredDefault.toLowerCase().endsWith(".json") ? configuredDefault.replace(/\.json$/i, ".html") : undefined)
-    || (configuredDefault && format === "markdown" && configuredDefault.toLowerCase().endsWith(".json") ? configuredDefault.replace(/\.json$/i, ".md") : undefined)
+  const configuredPath = (configuredDefault && format === "html" && /\.(json|txt)$/i.test(configuredDefault) ? configuredDefault.replace(/\.(json|txt)$/i, ".html") : undefined)
+    || (configuredDefault && format === "markdown" && /\.(json|txt)$/i.test(configuredDefault) ? configuredDefault.replace(/\.(json|txt)$/i, ".md") : undefined)
     || configuredDefault
     || fallback;
   return resolveProjectPath(projectRoot, configuredPath, "Report output");

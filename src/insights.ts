@@ -1,4 +1,6 @@
-import { FileReport, ScanReport, HealthReport, LintMessage } from "./types";
+import fs from "fs";
+import path from "path";
+import { FileReport, ScanReport, HealthReport, LintMessage, HotspotEntry } from "./types";
 
 export function buildCategoryCounts(files: FileReport[]) {
   const counts: Record<string, number> = {
@@ -26,10 +28,55 @@ export function buildScanScore(files: FileReport[]) {
   return score;
 }
 
-export function buildHotspots(report: ScanReport, limit = 10) {
-  const hotspots = report.files.map(f => ({ filePath: f.filePath, score: f.errorCount * 3 + f.warningCount, errors: f.errorCount, warnings: f.warningCount }));
-  hotspots.sort((a, b) => b.score - a.score);
-  return hotspots.slice(0, limit);
+function getLineCount(filePath: string): number {
+  try {
+    const content = fs.readFileSync(filePath, "utf8");
+    return content.split("\n").length;
+  } catch {
+    return 0;
+  }
+}
+
+export function buildHotspots(report: ScanReport, projectRoot?: string, limit = 10, sortBy: "score" | "density" = "score", minScore = 0): HotspotEntry[] {
+  const entries: HotspotEntry[] = [];
+
+  for (const f of report.files) {
+    if (f.errorCount + f.warningCount === 0) continue;
+
+    const fixableCount = f.messages.filter(m => m.fixable).length;
+    const categoryCounts = new Map<string, number>();
+    for (const m of f.messages) {
+      const cat = m.category || "maintainability";
+      categoryCounts.set(cat, (categoryCounts.get(cat) || 0) + 1);
+    }
+    const topCategory = [...categoryCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "maintainability";
+    const score = f.errorCount * 3 + f.warningCount;
+    if (score < minScore) continue;
+
+    let lineCount = 0;
+    if (projectRoot) {
+      lineCount = getLineCount(path.resolve(projectRoot, f.filePath));
+    }
+
+    entries.push({
+      filePath: f.filePath,
+      score,
+      errors: f.errorCount,
+      warnings: f.warningCount,
+      fixableCount,
+      lineCount,
+      density: lineCount > 0 ? Math.round(((f.errorCount + f.warningCount) / lineCount) * 100) : 0,
+      topCategory
+    });
+  }
+
+  if (sortBy === "density") {
+    entries.sort((a, b) => b.density - a.density || b.score - a.score);
+  } else {
+    entries.sort((a, b) => b.score - a.score || b.density - a.density);
+  }
+
+  return entries.slice(0, limit);
 }
 
 export function inferCategory(message: LintMessage): LintMessage["category"] {
@@ -70,7 +117,7 @@ export function buildHealthReport(report: ScanReport, images: { file: string; si
     priorities.push({ label: `Improve ${cat}`, detail: `${info.count} issues in ${cat}`, impact: info.score < 70 ? "high" : "low" });
   }
 
-  const hotspots = buildHotspots(report, 10);
+  const hotspots = buildHotspots(report, undefined, 10);
 
   return {
     generatedAt: new Date().toISOString(),

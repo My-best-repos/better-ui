@@ -25,10 +25,11 @@ For discoverability, `Ctrl+Shift+S` and `/commands` both open the command palett
 - `/review-changed`
 - `/review-staged`
 - `/pr-summary`
-- `/compare`
 - `/explain`
 - `/images`
 - `/init`
+- `/ui-typography`
+- `/ui-spacing`
 - `/commands`
 - `/help`
 - `/menu`

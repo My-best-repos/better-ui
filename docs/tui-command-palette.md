@@ -4,7 +4,7 @@
 
 The TUI command palette opens from the prompt with `Ctrl+Shift+S` or by typing `/commands`.
 
-It shows a selectable list of slash commands and short descriptions, so users can discover the available flows without leaving the command center.
+It shows a selectable list of slash commands sorted alphabetically, with short descriptions, so users can discover the available flows without leaving the command center.
 
 The palette still lets you move down to reveal commands that are not visible yet. Once you have reached the real end of the command list, pressing the down arrow no longer wraps back to the top.
 

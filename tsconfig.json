@@ -6,10 +6,14 @@
     "rootDir": ".",
     "outDir": "dist",
     "strict": true,
-    "types": ["node"],
+    "types": ["node", "vitest"],
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*", "bin/**/*"]
+  "include": ["src/**/*", "bin/**/*"],
+  "ts-node": {
+    "preferTs": true,
+    "transpileOnly": true
+  }
 }

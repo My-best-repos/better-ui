@@ -11,9 +11,9 @@ Key commands (brief):
 
 - `scan` — Runs scanners across the project and produces a report.
   - Formats: `json` (default), `markdown`, `html` (`--format`)
-  - Output: `--out <path>`; also writes snapshot to `.better-ui/history/latest.json`
-  - Scope flags: `--changed`, `--staged` to limit to git diffs.
-  - Advanced flags: `--skip-history`, `--top <n>`, `--scan-images`, `--open`
+  - Output: `--out <path>`; descriptive filename `<command>-<MMDDTHHMMSS>.<ext>` by default
+  - Performs a full scan of the current project and produces a report tagged with the project name.
+  - Advanced flags: `--top <n>`, `--scan-images`, `--open`
   - Terminal output: keeps the full `Scan Summary`, richer-workflows hint, and score bar
 
 - `fix` — Applies autofixes or previews. Dry-run by default.
@@ -36,7 +36,7 @@ Key commands (brief):
 
 - `pr-summary` — Produces a PR-ready markdown summary of changed files and high-priority findings.
 
-- `compare` — Compares current scan against last snapshot stored in `.better-ui/history`.
+
 
 - `hotspots` — Outputs files ranked by combined severity/volume to help prioritize fixes.
 
@@ -47,10 +47,14 @@ Key commands (brief):
 - `tui` / `/menu` — Starts the interactive terminal UI (prompt-first command center, command palette, dashboards, review flows).
   - Non-scan slash commands open with a compact `Run Summary`; `/scan` keeps the detailed scan summary
 
+- `ui-audit` — Scans UI surface: file distribution, CSS methodology, semantic HTML, responsive breakpoints, and font loading. Returns a 0-100 UI score.
+- `ui-colors` — Scans CSS and component files for hex, rgb, hsl, and Tailwind color declarations. Reports unique colors, frequency, and inconsistencies.
+- `ui-standards` — Analyzes component naming (PascalCase vs kebab-case), export patterns, Props interfaces, file size, and organization type (flat vs feature-folders).
+
 Slash aliases:
 
 - The CLI supports slash-style aliases via `src/slashCommands.ts` and rejects non-slash top-level invocations.
-- Every primary menu action in the TUI has a slash equivalent. The explicit aliases are: `/scan`, `/changed`, `/staged`, `/fix`, `/fix-preview`, `/fix-apply`, `/fix-interactive`, `/health`, `/doctor`, `/hotspots`, `/a11y`, `/review`, `/review-changed`, `/review-staged`, `/pr-summary`, `/compare`, `/deps`, `/explain`, `/images`, `/init`, `/advanced`, `/menu`, `/commands`, `/help`, and `/exit`.
+- Every primary menu action in the TUI has a slash equivalent. The explicit aliases are: `/scan`, `/changed`, `/staged`, `/fix`, `/fix-preview`, `/fix-apply`, `/fix-interactive`, `/health`, `/doctor`, `/hotspots`, `/a11y`, `/review`, `/review-changed`, `/review-staged`, `/pr-summary`, `/deps`, `/explain`, `/images`, `/init`, `/advanced`, `/menu`, `/commands`, `/help`, `/exit`, `/ui-audit`, `/ui-colors`, `/ui-standards`, `/ui-typography`, and `/ui-spacing`.
 
 Notes for automation and AI agents:
 

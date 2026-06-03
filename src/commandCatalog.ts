@@ -75,8 +75,8 @@ export const COMMANDS: CommandDefinition[] = [
   {
     name: "hotspots",
     slash: "/hotspots",
-    description: "Show the files with the highest issue density and risk.",
-    example: "better-ui-cli /hotspots"
+    description: "Show the files with the highest issue density and risk. Flags: --density (sort by issues/line), --min-score <n> (filter).",
+    example: "better-ui-cli /hotspots --density --min-score 3"
   },
   {
     name: "check-accessibility (alias)",
@@ -107,12 +107,6 @@ export const COMMANDS: CommandDefinition[] = [
     slash: "/pr-summary",
     description: "Generate a pull-request summary, defaulting to changed files.",
     example: "better-ui-cli /pr-summary --out pr-summary.md"
-  },
-  {
-    name: "compare",
-    slash: "/compare",
-    description: "Compare the current scan with the last saved snapshot.",
-    example: "better-ui-cli /compare"
   },
   {
     name: "explain",
@@ -149,6 +143,36 @@ export const COMMANDS: CommandDefinition[] = [
     slash: "/exit",
     description: "Leave the TUI directly from the slash-command palette.",
     example: "better-ui-cli /menu"
+  },
+  {
+    name: "ui-audit",
+    slash: "/ui-audit",
+    description: "Audit UI surface: file distribution, CSS methodology, semantic HTML, responsive breakpoints, and font loading.",
+    example: "better-ui-cli /ui-audit"
+  },
+  {
+    name: "ui-colors",
+    slash: "/ui-colors",
+    description: "Scan all color declarations across CSS and components. Detects hex, rgb, hsl, and Tailwind color classes.",
+    example: "better-ui-cli /ui-colors"
+  },
+  {
+    name: "ui-standards",
+    slash: "/ui-standards",
+    description: "Analyze component file organization, naming conventions, export patterns, props interfaces, and complexity.",
+    example: "better-ui-cli /ui-standards"
+  },
+  {
+    name: "ui-typography",
+    slash: "/ui-typography",
+    description: "Audit typography: font families, sizes, line-heights, weights, and custom @font-face declarations.",
+    example: "better-ui-cli /ui-typography"
+  },
+  {
+    name: "ui-spacing",
+    slash: "/ui-spacing",
+    description: "Scan spacing patterns: margins, paddings, gaps, and Tailwind spacing utilities.",
+    example: "better-ui-cli /ui-spacing"
   }
 ];
 
