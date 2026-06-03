@@ -6,11 +6,11 @@
   "packageManager": "pnpm@11.4.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/davidalarcondev/better-ui.git"
+    "url": "git+https://github.com/My-best-repos/better-ui.git"
   },
-  "homepage": "https://github.com/davidalarcondev/better-ui#readme",
+  "homepage": "https://github.com/My-best-repos/better-ui#readme",
   "bugs": {
-    "url": "https://github.com/davidalarcondev/better-ui/issues"
+    "url": "https://github.com/My-best-repos/better-ui/issues"
   },
   "main": "dist/src/cli.js",
   "files": [
