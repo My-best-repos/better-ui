@@ -6,18 +6,17 @@
 
 Read these files first:
 
-1. `instructions.md`
-2. `AGENTS.md`
-3. The relevant files in `docs/`
+1. `AGENTS.md`
+2. The relevant files in `docs/`
 
 ## Local setup
 
 ```bash
-npm install
-npm run typecheck
-npm run lint
-npm run test:ci
-npm run build
+pnpm install
+pnpm typecheck
+pnpm lint
+pnpm test:ci
+pnpm build
 ```
 
 Useful development commands:
@@ -47,7 +46,7 @@ npx ts-node src/cli.ts /scan --format json --out tmp-report.json
 
 ## Pull request checklist
 
-- [ ] I read `instructions.md`, `AGENTS.md`, and the relevant docs.
+- [ ] I read `AGENTS.md` and the relevant docs.
 - [ ] I ran `npm run typecheck`.
 - [ ] I ran `npm run lint`.
 - [ ] I ran `npm run test:ci`.

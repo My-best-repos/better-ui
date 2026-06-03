@@ -21,10 +21,13 @@
 | `gitUtils.test.ts` | 6 | isGitRepository, getCurrentBranch, getChangedFiles (modified/staged/untracked) |
 | `scanners/dependencyScanner.test.ts` | 7 | Unused deps, used deps, @types/eslint ignoring, require detection, heavy deps, missing src/, invalid JSON |
 | `scanners/imageScanner.test.ts` | 9 | Empty, png/jpg/jpeg discovery, nested dirs, node_modules/dist/.git exclusion, WebP generation |
+| `uiTools.test.ts` | 38 | auditUI: file distribution, CSS methodology, viewport/theme-color meta, semantic HTML, inline styles, breakpoints, font loading, UI scoring; scanColors: unique colors, declarations, Tailwind, CSS vars, inconsistencies; scanStandards: naming, exports, props interfaces, avg lines, org type |
+| `reporters/format-smoke.test.ts` | 2 | runScanWorkflow returns reportPath (defined), file read after scan |
+| `cli-no-save.test.ts` | 4 | /scan --no-save, /scan with --out, /review --no-save, /pr-summary --no-save |
 | `tests/integration/cli-smoke.spec.ts` | 4 | CLI: advanced, deps, scan JSON output, images/webp |
 | `tests/integration/pack-install.spec.ts` | 1 | Pack → install in fresh project → run binary |
 
-Total: **241 tests** (236 unit + 5 integration)
+Total: **285 tests** (280 unit + 5 integration)
 
 ## Pending
 

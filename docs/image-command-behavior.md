@@ -1,4 +1,3 @@
-
 # Image Command Behavior
 
 Summary:

@@ -3,6 +3,7 @@ dist/
 report.json
 *.log
 .better-ui/
+reports/
 tmp-report.json
 report.html
 report.md

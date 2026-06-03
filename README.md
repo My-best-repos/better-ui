@@ -17,29 +17,22 @@ The repository and product name are `better-ui`. The published npm package and e
 
 It supports direct slash commands such as `better-ui-cli /scan`, `better-ui-cli /health`, and `better-ui-cli /menu`, plus a richer TUI designed around a modern dashboard-and-command-palette workflow.
 
-All repository documentation is in English. The detailed sections referenced from this README were split into the `docs/` directory. See `AGENTS.md` for the quick index and read `instructions.md` in the project root before adding new features or docs.
+All repository documentation is in English. The detailed sections referenced from this README were split into the `docs/` directory. See `AGENTS.md` for the quick index before adding new features or docs.
 
 ## Open source project
 
 - Contribution guide: `CONTRIBUTING.md`
-- Repository instructions: `instructions.md`
 - Open source roadmap: `docs/open-source-roadmap.md`
 - Distribution and installation: `docs/distribution-and-installation.md`
 - Testing and CI: `docs/testing-and-ci.md`
 - Security notes: `docs/security-notes.md`
 - Advanced commands: `docs/advanced-commands.md`
 - Dependency scanner: `docs/dependency-scanner.md`
+- Hotspots: `docs/hotspots-command.md`
+- Init presets: `docs/presets-reference.md`
 - Technology stack: `docs/technology-stack.md`
 
 The goal is to make `better-ui` broadly useful for frontend developers while staying honest about current limits and keeping the core tool local-first and reviewable.
-
-## What's new in 1.0
-
-- **Framework Intelligence:** Automatically detects your stack (Next.js, React, Vue, Vite, Tailwind, etc.) when you open the Command Center.
-- **Dependency Scanner (`/deps`):** Instantly finds dead code (unused dependencies) and heavy libraries bloating your `node_modules`.
-- **Advanced Grid TUI:** A borderless, side-by-side terminal dashboard for a native app feel.
-- **Pro-tips built-in (`/advanced`):** An in-app cheat sheet for advanced git flows, interactive fixes, and supercharged scans.
-- **Run Summaries and Next Moves:** Scan keeps its detailed summary, while other commands open with a compact run summary and focused next-step guidance.
 
 ## Core Features
 
@@ -47,7 +40,6 @@ The goal is to make `better-ui` broadly useful for frontend developers while sta
 - Adds frontend-specific heuristics for accessibility and maintainability.
 - Scores the project health from `0` to `100`.
 - Tracks issue categories: correctness, maintainability, accessibility, performance, DX, and code quality.
-- Saves scan snapshots to `.better-ui/history` for later comparisons.
 - Reviews only changed or staged files for pre-commit / PR workflows.
 - Adds a doctor view for config and script readiness.
 - Can explain findings in human terms, including why they matter and safer fixes.
@@ -133,25 +125,22 @@ That source form is only for working inside the `better-ui` repository itself.
 5. **Check health score**
    `npx ts-node src/cli.ts /health`
 
-6. **Compare against the last snapshot**
-   `npx ts-node src/cli.ts /compare`
-
-7. **Explain findings for a file or report**
+6. **Explain findings for a file or report**
    `npx ts-node src/cli.ts /explain src/components/App.tsx`
 
-8. **Generate a visual HTML report and open it**
+7. **Generate a visual HTML report and open it**
    `npx ts-node src/cli.ts /scan --format html --out report.html --open`
 
-9. **View advanced flows and subcommands**
+8. **View advanced flows and subcommands**
    `npx ts-node src/cli.ts /advanced`
 
-10. **Bootstrap using a preset**
-    `npx ts-node src/cli.ts /init --preset next`
+9. **Bootstrap using a preset**
+   `npx ts-node src/cli.ts /init --preset next`
 
 ## Supercharged Scans
 
 The `/scan` command includes powerful flags for professional workflows:
-- `--skip-history`: Does not save a snapshot to `.better-ui/history` (useful for CI).
+- `--no-save`: Does not write the report file to disk (useful for CI).
 - `--top <n>`: Controls how many hotspots (high-risk files) to display (default is 5).
 - `--open`: If generating an HTML report, automatically opens it in your default browser.
 - `--scan-images`: Also runs the image scan to generate an inventory of heavy assets.
@@ -175,12 +164,16 @@ The CLI is slash-only. Use commands such as:
 - `better-ui-cli /review`
 - `better-ui-cli /pr-summary`
 - `better-ui-cli /deps`
-- `better-ui-cli /compare`
 - `better-ui-cli /explain`
 - `better-ui-cli /images`
 - `better-ui-cli /init`
 - `better-ui-cli /menu`
 - `better-ui-cli /advanced`
+- `better-ui-cli /ui-audit`
+- `better-ui-cli /ui-colors`
+- `better-ui-cli /ui-standards`
+- `better-ui-cli /ui-typography`
+- `better-ui-cli /ui-spacing`
 
 ## Slash commands
 
@@ -189,12 +182,13 @@ Inside the TUI, you can use these directly:
 - `/fix`, `/fix-interactive`, `/fix-apply`
 - `/health`, `/doctor`, `/hotspots`, `/a11y`
 - `/review`, `/review-changed`, `/review-staged`, `/pr-summary`
-- `/compare`, `/deps`, `/explain`, `/images`, `/init`
+- `/deps`, `/explain`, `/images`, `/init`
 - `/advanced`, `/menu`, `/commands`, `/exit`
+- `/ui-audit`, `/ui-colors`, `/ui-standards`, `/ui-typography`, `/ui-spacing`
 
 ## Reports and scoring
 
-`scan` writes a JSON report by default and also stores a snapshot under `.better-ui/history/latest.json` for compare workflows.
+`scan` writes a report in the requested format (json, markdown, or html).
 Each report includes: errors, warnings, total issues, files with issues, health score, category counts, and file-level messages.
 Supported formats: `json`, `markdown`, `html`
 
@@ -257,6 +251,5 @@ See `docs/release-automation.md` for details on how the release workflow works.
 - `src/scanners/eslintScanner.ts`: ESLint, TypeScript, and frontend heuristics.
 - `src/scanners/imageScanner.ts`: image discovery and WebP generation.
 - `src/insights.ts`: scoring, hotspots, markdown summaries, comparisons.
-- `src/history.ts`: snapshot persistence.
 - `src/slashCommands.ts`: slash command parsing and aliases.
 - `src/reporters/htmlReporter.ts`: visual HTML report generation.

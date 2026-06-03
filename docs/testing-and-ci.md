@@ -1,4 +1,3 @@
-
 # Testing and CI
 
 This file describes the current verification bar for `better-ui` and the commands contributors should run before opening a pull request or publishing a release.

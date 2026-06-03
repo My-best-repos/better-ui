@@ -1,4 +1,3 @@
-
 # Security Notes & Guardrails
 
 Core assumptions:

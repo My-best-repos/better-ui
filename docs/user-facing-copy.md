@@ -1,4 +1,3 @@
-
 # User-Facing Copy & UX Guidelines
 
 Branding and naming:

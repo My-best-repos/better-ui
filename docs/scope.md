@@ -26,7 +26,7 @@ Quick directory layout:
 
 - `src/` - application code (scanners, reporters, CLI, TUI, helpers)
 - `bin/` - light wrapper for local executable
-- `.better-ui/` - runtime outputs (images)
+- `reports/` - generated command reports (scan, health, etc.)
 - `docs/` - human- and machine-oriented documentation (split from AGENTS.md)
 
 Quick start (developer):
@@ -37,5 +37,5 @@ Quick start (developer):
 
 For automated agents / bots:
 
-- Read `better-ui/instructions.md` and `better-ui/AGENTS.md` first. These files define contribution rules and agent expectations.
+- Read `better-ui/AGENTS.md` first. This file defines contribution rules and agent expectations.
 - Parse the `docs/` files for deeper context before making code changes or generating patches.

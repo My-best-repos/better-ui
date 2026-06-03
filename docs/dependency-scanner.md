@@ -21,11 +21,36 @@ From inside the TUI:
 /deps
 ```
 
+## Monitored heavy packages
+
+The scanner flags these known-heavy packages with suggestions for lighter alternatives:
+
+| Package | Alternative |
+|---------|-------------|
+| `lodash` | Native `Array`/`Map`/`Set` methods or `radashi` |
+| `moment` | `Day.js` (2 kB) or `date-fns` |
+| `moment-timezone` | `Day.js` + utc plugin (2 kB) |
+| `rxjs` | Native `async/await` + `AbortController` |
+| `three` | `regl` or `twgl` (if full 3D not needed) |
+| `echarts` | `Chart.js` (1/3 the size) or `uPlot` |
+| `d3` | `d3-selection` only instead of full `d3` |
+
+Heavy dependency sizes are reported as 0 KB (placeholder) — the check is name-based, not a real filesystem measurement.
+
+## Skip list for unused detection
+
+These package patterns are automatically excluded from the unused check:
+
+- `@types/*` — Type definitions
+- `typescript` — Build-time only
+- `react-scripts` — CRA scaffolding
+- Any package name containing `eslint` — Lint tooling
+
 ## Considerations and Limitations
 
 - **Fast Heuristic:** To maintain the extreme speed of the tool, the dependency scan uses regular expressions against your source files rather than a full AST parse. While highly accurate for standard `import` and `require` statements, extremely obfuscated dynamic imports might be missed.
 - **Scope:** It primarily checks `src/`. If you only import a dependency in a config file located at the root (like `vite.config.ts`), it might be flagged as unused.
-- **Type Definitions:** It automatically ignores `@types/*` packages and build tools like `typescript` and `eslint` to avoid false positives.
+- **Heavy sizes:** The size column for heavy dependencies is always `0 KB` — this is a name-based heuristic, not a real bundle-size measurement.
 
 ## Verification
 To verify this works locally:

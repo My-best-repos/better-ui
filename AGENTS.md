@@ -1,4 +1,3 @@
-
 # AGENTS.md
 
 Summary and purpose
@@ -6,13 +5,12 @@ Summary and purpose
 This file is a concise landing guide for anyone (human or automated) who will inspect, modify, or extend the better-ui repository.
 Its goal is to provide enough context to understand the project's intent, point to key files and flows, and set clear expectations for automated agents and AI assistants.
 
-Mandatory reading order
+Required reading
 
-Before proposing or applying any changes, read these files in order:
+Before proposing or applying any changes, read these files:
 
-1. `instructions.md` — project contribution rules, commit format, and documentation requirements.
-2. `AGENTS.md` — this file; read it to get high-level context and a quick checklist.
-3. The relevant files in `docs/` — read the specific documentation for the area you will change.
+1. `AGENTS.md` — this file; read it to get high-level context and a quick checklist.
+2. The relevant files in `docs/` — read the specific documentation for the area you will change.
 
 If an automated agent cannot read any of the above, it must stop and request human intervention.
 
@@ -25,11 +23,10 @@ What this repository contains (operational summary)
 - Reporters: `src/reporters/` — JSON, HTML, and terminal reporters.
 - Interactive UI: `src/tui/app.ts` — Enquirer-based TUI for dashboards and review flows.
 - Path safety: `src/projectPaths.ts` — helpers that ensure all writes stay inside the project root.
-- Snapshot storage: `.better-ui/history/latest.json` — used for comparisons.
 
 Required checklist before making changes (human or automated agent)
 
-1. Read `instructions.md`, `AGENTS.md`, and the relevant `docs/*` files.
+1. Read `AGENTS.md` and the relevant `docs/*` files.
 2. Run the basic local verification steps:
    - `pnpm install`
    - `pnpm typecheck` (ensure no type errors)
@@ -72,6 +69,9 @@ Where to modify code depending on the change type
 - Dependency Scanner: `docs/dependency-scanner.md` documents how the unused/heavy dependency analysis works.
 - Advanced Commands: `docs/advanced-commands.md` documents flags, the TUI post-command prompt flow, and the `/advanced` catalog.
 - Technology Stack: `docs/technology-stack.md` documents the main runtime, CLI/TUI, linting, and testing technologies used by the project.
+- UI Commands: `docs/ui-commands.md` documents the filesystem-only UI scanners: `/ui-audit`, `/ui-colors`, `/ui-standards`, `/ui-typography`, and `/ui-spacing`.
+- Hotspots: `docs/hotspots-command.md` documents the `/hotspots` command and its flags (`--density`, `--min-score`, `--top`).
+- Init Presets: `docs/presets-reference.md` documents the available `/init --preset` options and their configuration.
 
 Quick verification commands
 
@@ -104,4 +104,4 @@ Verification: pnpm typecheck; pnpm lint; npx ts-node src/cli.ts /images --genera
 
 Final note
 
-Keep AGENTS.md concise but informative. For deep technical details and design rationale, consult the files under `docs/`. Always follow `instructions.md` before acting.
+Keep AGENTS.md concise but informative. For deep technical details and design rationale, consult the files under `docs/`. Always follow `AGENTS.md` before acting.

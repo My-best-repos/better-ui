@@ -1,8 +1,0 @@
-# Scan Report
-Score: 100/100
-
-- src\cli.ts: 0 errors, 1 warnings
-- src\scanners\eslintScanner.ts: 0 errors, 1 warnings
-- src\tui\app.ts: 0 errors, 1 warnings
-- src\uiTools.ts: 0 errors, 1 warnings
-- test\uiTools.test.ts: 0 errors, 1 warnings

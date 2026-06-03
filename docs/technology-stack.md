@@ -31,9 +31,22 @@
 | `src/cli.ts` | CLI entrypoint and command registration |
 | `src/tui/app.ts` | Interactive TUI and command palette |
 | `src/cli/workflows.ts` | Shared application workflows |
+| `src/cli/initCommand.ts` | `/init` interactive assistant and config bootstrapping |
 | `src/scanners/` | ESLint, image, and dependency scanners |
 | `src/reporters/` | Terminal, markdown, HTML, and report formatting |
 | `src/terminalUi.ts` | Shared terminal panels, grids, score bar, and run summary helpers |
+| `src/insights.ts` | Scoring, category inference, hotspots, markdown summaries, comparisons |
+| `src/explanations.ts` | Human-readable why/fix/risk per rule |
+| `src/config.ts` | Config loading, framework detection, report path resolution |
+| `src/presets.ts` | Init preset definitions (react, next, vite, etc.) |
+| `src/slashCommands.ts` | Slash alias mapping and CLI argv normalization |
+| `src/relatedCommands.ts` | "Next Best Moves" recommendation system |
+| `src/commandText.ts` | Centralized user-facing guidance strings |
+| `src/gitUtils.ts` | Git branch detection, changed/staged file listing |
+| `src/projectPaths.ts` | Path safety validators (prevent writes outside project root) |
+| `src/types.ts` | Shared TypeScript types: ScanReport, HealthReport, HotspotEntry, LintMessage, etc. |
+| `src/commandCatalog.ts` | Canonical command definitions and slash registry |
+| `src/uiTools.ts` | Filesystem-only UI scanners: audit, colors, standards, typography, spacing |
 
 ## Verification
 
