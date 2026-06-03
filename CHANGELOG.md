@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/My-best-repos/better-ui/compare/v1.2.0...v1.2.1) (2026-06-03)
+
+
+### Bug Fixes
+
+* **docs:** overhaul existing documentation and readme examples ([06b2b8d](https://github.com/My-best-repos/better-ui/commit/06b2b8d836199bc7caa4a35d8aa23cc44ac4d903))
+
 ## [1.2.0](https://github.com/My-best-repos/better-ui/compare/v1.1.0...v1.2.0) (2026-06-03)
 
 
