@@ -212,7 +212,7 @@ Every primary action exposed in the TUI has a slash-command equivalent. After ru
 
 ## Configuration
 
-`better-ui-cli /init` creates `better-ui.config.json`. You can also start with presets (`react`, `next`, `vite`, `vue`, `design-system`, `landing-page`, `typescript-library`).
+`better-ui-cli /init` creates `better-ui.config.json`. You can also start with presets (`react`, `next`, `vite`, `landing-page`, `typescript-library`).
 
 ## Security and guardrails
 
