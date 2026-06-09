@@ -9,7 +9,7 @@ describe("formatRelatedCommands", () => {
   });
 
   it("returns exactly 4 entries for known keys", () => {
-    const keys = ["scan", "fix-preview", "doctor", "health", "deps", "hotspots", "review", "pr-summary", "explain", "images", "init", "commands"];
+    const keys = ["scan", "doctor", "health", "deps", "hotspots", "explain", "images", "init", "commands"];
     for (const key of keys) {
       expect(formatRelatedCommands(key)).toHaveLength(4);
     }
@@ -24,7 +24,7 @@ describe("formatRelatedCommands", () => {
   });
 
   it("includes a category badge on each line", () => {
-    const result = formatRelatedCommands("fix-preview");
+    const result = formatRelatedCommands("scan");
     for (const line of result) {
       expect(line).toContain("[");
       expect(line).toContain("]");
@@ -32,18 +32,8 @@ describe("formatRelatedCommands", () => {
   });
 
   it("uses intent 'Repair' for fix commands", () => {
-    const result = formatRelatedCommands("fix-preview");
+    const result = formatRelatedCommands("fix-interactive");
     expect(result[0]).toContain("[Repair");
-  });
-
-  it("uses intent 'Ship' for review commands", () => {
-    const result = formatRelatedCommands("review");
-    expect(result[0]).toContain("[Ship");
-  });
-
-  it("uses intent 'Ship' for pr-summary review entries", () => {
-    const result = formatRelatedCommands("pr-summary");
-    expect(result[0]).toContain("[Ship");
   });
 
   it("uses intent 'Optimize' for images", () => {

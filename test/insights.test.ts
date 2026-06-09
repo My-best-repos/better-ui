@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildCategoryCounts, buildScanScore, buildHotspots, inferCategory, inferImpact, buildHealthReport, buildMarkdownSummary, buildReviewBody, compareReports } from "../src/insights";
+import { buildCategoryCounts, buildScanScore, buildHotspots, inferCategory, inferImpact, buildHealthReport, buildMarkdownSummary, compareReports } from "../src/insights";
 import type { FileReport, ScanReport, LintMessage } from "../src/types";
 
 function makeFile(filePath: string, errors: number, warnings: number, messages: LintMessage[] = []): FileReport {
@@ -215,28 +215,6 @@ describe("buildMarkdownSummary", () => {
     const result = buildMarkdownSummary(report);
     const matches = result.match(/- src\/file/g);
     expect(matches?.length).toBe(20);
-  });
-});
-
-describe("buildReviewBody", () => {
-  it("calls buildMarkdownSummary with branch name", () => {
-    const report: ScanReport = {
-      generatedAt: "",
-      summary: { errors: 0, warnings: 0, totalIssues: 0, filesWithIssues: 0, score: 100, categories: {} as any },
-      files: []
-    };
-    const result = buildReviewBody(report, "feature/foo");
-    expect(result).toContain("Review for feature/foo");
-  });
-
-  it("defaults to 'changes' when no branch name", () => {
-    const report: ScanReport = {
-      generatedAt: "",
-      summary: { errors: 0, warnings: 0, totalIssues: 0, filesWithIssues: 0, score: 100, categories: {} as any },
-      files: []
-    };
-    const result = buildReviewBody(report);
-    expect(result).toContain("Review for changes");
   });
 });
 
