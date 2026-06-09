@@ -16,8 +16,8 @@ import { printSummary } from "../reporters/terminalReporter";
 import { scanDependencies } from "../scanners/dependencyScanner";
 import { generateWebP, scanImages } from "../scanners/imageScanner";
 import { parseSlashCommand } from "../slashCommands";
-import { printBanner, printPanel, printGrid, formatDelta, formatElapsed, printRunSummary } from "../terminalUi";
-import { REVIEW_DRAFT, PR_GUIDE, INIT_NOTE, IMAGES_WEBP_NOTE } from "../commandText";
+import { printBanner, printPanel, printGrid, formatDelta, formatElapsed, printRunSummary, groupMessages, groupMessagesByRule } from "../terminalUi";
+import { INIT_NOTE, IMAGES_WEBP_NOTE } from "../commandText";
 import {
   applyInteractiveHunkSelection,
   runAccessibilityWorkflow,
@@ -26,12 +26,22 @@ import {
   runFixWorkflow,
   runHealthWorkflow,
   runInteractiveFixWorkflow,
-  runPrSummaryWorkflow,
-  runReviewWorkflow,
-  runScanWorkflow
+  runScanWorkflow,
+  runSeoWorkflow,
+  runTechDebtWorkflow,
+  runPerformanceWorkflow,
+  runStackAuditWorkflow,
+  runMigrationWorkflow,
+  runFeScoreWorkflow,
 } from "../cli/workflows";
+import { renderSeoReport } from "../renderers/seoRenderer";
+import { renderTechDebtReport } from "../renderers/techDebtRenderer";
+import { renderPerformanceReport } from "../renderers/performanceRenderer";
+import { renderStackAuditReport } from "../renderers/stackAuditRenderer";
+import { renderMigrationReport } from "../renderers/migrationRenderer";
+import { renderFeScoreReport } from "../renderers/feScoreRenderer";
 import { formatRelatedCommands } from "../relatedCommands";
-import { auditUI, scanColors, scanStandards, scanTypography, scanSpacing } from "../uiTools";
+import { scanColors, scanStandards, scanTypography, scanSpacing } from "../uiTools";
 
 const altMap: Record<string, string> = {
   "lodash": "native Array/Map/Set methods or radashi",
@@ -103,11 +113,6 @@ function resolveCommandVariant(tokens: string[]) {
     if (readFlag(tokens, "--apply")) return "fix-apply";
     return "fix-preview";
   }
-  if (command === "review") {
-    if (readFlag(tokens, "--changed")) return "review-changed";
-    if (readFlag(tokens, "--staged")) return "review-staged";
-    return "review";
-  }
   if (command === "images") {
     return readFlag(tokens, "--generate") ? "images-generate" : "images";
   }
@@ -126,22 +131,23 @@ const COMMAND_HEADLINES: Record<string, { title: string; tone: string; color: "m
   "deps": { title: "Dependency Audit", tone: "Trim dead weight, spot oversized packages, and keep the frontend lean.", color: "yellow" },
   "advanced": { title: "Operator Guide", tone: "High-leverage flags and faster workflows for people who want the sharp tools.", color: "magenta" },
   "hotspots": { title: "Priority Queue", tone: "These files are your leverage points. Fix them first to move the score fastest.", color: "red" },
-  "review": { title: "Review Desk", tone: "A branch-level quality readout designed for review conversations, not just raw lint output.", color: "cyan" },
-  "review-changed": { title: "Diff Review", tone: "Only the modified files are in frame. Good for PR shaping and final checks.", color: "cyan" },
-  "review-staged": { title: "Staged Review", tone: "This is the exact commit candidate. Treat it like a release slice.", color: "cyan" },
-  "pr-summary": { title: "Release Narrative", tone: "Translate technical findings into a clean story the reviewer can trust.", color: "magenta" },
   "check-accessibility": { title: "Accessibility Pass", tone: "Accessibility is not decoration. This pass isolates barriers before they ship.", color: "blue" },
 
   "explain": { title: "Rule Translator", tone: "Turn raw findings into intent, impact, and the shortest correct fix.", color: "yellow" },
+  "seo": { title: "SEO Audit", tone: "Meta tags, Open Graph, structured data, and content quality — find what search engines see.", color: "blue" },
   "images": { title: "Asset Pass", tone: "Image weight is frontend performance. Audit the payload before it hurts users.", color: "blue" },
   "images-generate": { title: "Asset Optimization", tone: "Compression is being turned into concrete bytes saved, not just good intentions.", color: "green" },
   "init": { title: "Setup Concierge", tone: "Bootstrapping the project so the rest of the toolchain has something solid to stand on.", color: "green" },
   "commands": { title: "Command Index", tone: "This is the operating surface. Know the tools, then move with intent.", color: "magenta" },
-  "ui-audit": { title: "UI Surface Audit", tone: "File distribution, CSS methodology, semantic HTML, and responsiveness — a full UI health check.", color: "blue" },
   "ui-colors": { title: "Color Palette Scan", tone: "Every hex, rgb, and Tailwind color class across the project. Know your palette.", color: "magenta" },
   "ui-standards": { title: "Standards Review", tone: "Naming, exports, props, and complexity — component hygiene matters.", color: "cyan" },
   "ui-typography": { title: "Typography Audit", tone: "Font families, sizes, line-heights, weights — the typography DNA of the project.", color: "magenta" },
-  "ui-spacing": { title: "Spacing Scan", tone: "Margins, paddings, gaps — find spacing inconsistencies across the UI.", color: "blue" }
+  "ui-spacing": { title: "Spacing Scan", tone: "Margins, paddings, gaps — find spacing inconsistencies across the UI.", color: "blue" },
+  "tech-debt": { title: "Tech Debt Scan", tone: "TODOs, FIXMEs, console.log, any types — find the hidden cost of speed.", color: "yellow" },
+  "performance": { title: "Performance Audit", tone: "Images, render-blocking, bundle hints, and caching — find what slows down the UX.", color: "magenta" },
+  "stack-audit": { title: "Stack Analysis", tone: "Frameworks, build tools, test runners, and CI — know your toolchain.", color: "cyan" },
+  "migration": { title: "Migration Readiness", tone: "Legacy patterns, deprecated APIs, and upgrade paths — plan your next migration.", color: "yellow" },
+  "fe-score": { title: "Frontend Score", tone: "Consolidated health score combining SEO, tech debt, performance, stack, and migration.", color: "green" }
 };
 
 function printCommandHeadline(key: string) {
@@ -452,8 +458,10 @@ async function _runSlashCommand(cwd: string, input: string) {
         if (catFiles.length === 0) continue;
         const catLines: string[] = [`${chalk.cyan("Issues:")} ${String(count)}`];
         for (const cf of catFiles) {
-          for (const msg of cf.messages) {
-            catLines.push(formatDiagnosticLine(msg, cf.filePath));
+          for (const { first, count: gCount } of groupMessagesByRule(cf.messages)) {
+            const line = formatDiagnosticLine(first, cf.filePath);
+            const suffix = gCount > 1 ? chalk.yellow(`  +${gCount - 1} more`) : "";
+            catLines.push(line + suffix);
           }
         }
         const titleStr = String(catName).charAt(0).toUpperCase() + String(catName).slice(1);
@@ -568,32 +576,38 @@ async function _runSlashCommand(cwd: string, input: string) {
       changed: readFlag(tokens, "--changed"),
       staged: readFlag(tokens, "--staged")
     });
-    if (result.preview) {
-      const fixableCount = result.report.files.reduce((sum, f) => sum + f.messages.filter(m => m.fixable).length, 0);
-      const fixableFiles = result.report.files.filter(f => f.messages.some(m => m.fixable)).length;
-      const previewLines = [
-        `${chalk.cyan("Scope:")} ${result.report.scope || "all"}`,
-        `${chalk.cyan("Autofixable:")} ${chalk.green(String(fixableCount))} issues in ${fixableFiles} file(s)`,
+
+    if (result.previews.length === 0) {
+      printPanel("Fix", ["No ESLint autofixes are currently available for the selected scope."], "green");
+      printRelatedCommands("fix");
+      return { shouldExit: false };
+    }
+
+    if (!result.report) {
+      const previewLines: string[] = [
+        `${chalk.cyan("Scope:")} ${readFlag(tokens, "--staged") ? "staged" : readFlag(tokens, "--changed") ? "changed" : "all"}`,
+        `${chalk.cyan("Files with autofixes:")} ${result.previews.length}`,
         ""
       ];
-      for (const file of result.report.files) {
-        const fixable = file.messages.filter(m => m.fixable);
-        if (fixable.length === 0) continue;
-        previewLines.push(`  ${chalk.white(file.filePath)}`);
-        for (const msg of fixable) {
-          previewLines.push(`    ${chalk.green("→")} ${formatDiagnosticLine(msg)}`);
+      for (const preview of result.previews) {
+        const changedDesc = preview.changedLines > 0 ? `${preview.changedLines} lines changed` : `${preview.hunks.length} change(s)`;
+        previewLines.push(`  ${chalk.white(preview.filePath)}  ${chalk.dim(`(${changedDesc})`)}`);
+        for (const hunk of preview.hunks.slice(0, 3)) {
+          for (const line of hunk.preview.slice(0, 4)) {
+            previewLines.push(`    ${line}`);
+          }
+          if (hunk.preview.length > 4) {
+            previewLines.push(`    ${chalk.dim(`… ${hunk.preview.length - 4} more lines`)}`);
+          }
         }
-      }
-      if (fixableCount === 0) {
-        previewLines.push("  " + chalk.dim("No autofixable issues detected in the current scope."));
       }
       previewLines.push("", chalk.dim("Re-run with --apply to write autofixes or --interactive for hunk-level selection."));
       printPanel("Fix Preview", previewLines, "yellow");
       printRelatedCommands("fix-preview");
     } else {
       const remaining = result.report.summary.errors + result.report.summary.warnings;
-      const fixedCount = result.report.files.reduce((sum, f) => sum + f.messages.filter(m => m.fixable).length, 0);
       const fixedFiles = result.report.files.filter(f => f.messages.some(m => m.fixable)).length;
+      const fixedCount = result.report.files.reduce((sum, f) => sum + f.messages.filter(m => m.fixable).length, 0);
       const fixResultLines = [
         `${chalk.cyan("Remaining errors:")} ${chalk.red(String(result.report.summary.errors))}`,
         `${chalk.cyan("Remaining warnings:")} ${chalk.yellow(String(result.report.summary.warnings))}`,
@@ -640,7 +654,7 @@ async function _runSlashCommand(cwd: string, input: string) {
     }
 
     const scriptLines: string[] = [];
-    const scriptChecks = ["better-ui:scan", "better-ui:fix", "better-ui:tui", "better-ui:health", "better-ui:doctor", "better-ui:a11y", "better-ui:pr-summary", "better-ui:review", "better-ui:init"];
+    const scriptChecks = ["better-ui:scan", "better-ui:fix", "better-ui:tui", "better-ui:health", "better-ui:doctor", "better-ui:a11y", "better-ui:init"];
     for (const script of scriptChecks) {
       const existing = pkg.scripts?.[script];
       if (existing) {
@@ -703,12 +717,6 @@ async function _runSlashCommand(cwd: string, input: string) {
   if (command === "health") {
     const result = await runHealthWorkflow(cwd);
 
-    printPanel("Run Output", [
-      `${chalk.cyan("Saved report:")} ${result.reportPath ? result.reportPath : "(not written)"}`,
-      "",
-      chalk.dim("Reports are saved under the shown path. To disable saving, run with --no-save or set defaults.reportFile to an empty value in your better-ui config.")
-    ], "cyan");
-
     const activeCategories = Object.entries(result.health.categories)
       .filter(([, cat]) => cat.count > 0)
       .sort(([, a], [, b]) => b.count - a.count);
@@ -722,8 +730,10 @@ async function _runSlashCommand(cwd: string, input: string) {
         ""
       ];
       for (const cf of catFiles) {
-        for (const msg of cf.messages) {
-          lines.push(formatDiagnosticLine(msg, cf.filePath));
+        for (const { first, count: gCount } of groupMessagesByRule(cf.messages)) {
+          const line = formatDiagnosticLine(first, cf.filePath);
+          const suffix = gCount > 1 ? chalk.yellow(`  +${gCount - 1} more`) : "";
+          lines.push(line + suffix);
         }
       }
       if (lines.length > 0) {
@@ -809,10 +819,6 @@ async function _runSlashCommand(cwd: string, input: string) {
       ["/fix --interactive", "Pick diffs one by one"],
       ["/fix --apply", "Auto-fix everything safely"]
     ];
-    const prLines = [
-      ["/review --changed", "Generate a code review body"],
-      ["/pr-summary", "Draft PR markdown summary"]
-    ];
     const hiddenLines = [
       ["Ctrl+Shift+S", "Open the Command Palette from anywhere"],
       ["/images --generate", "Auto-convert heavy images to webp"]
@@ -826,7 +832,6 @@ async function _runSlashCommand(cwd: string, input: string) {
     printGrid([
       { title: "Supercharged Scan", color: "cyan", lines: pad(scanLines) },
       { title: "Surgical Fixes", color: "green", lines: pad(fixLines) },
-      { title: "Pull Requests & Git", color: "magenta", lines: pad(prLines) },
       { title: "Hidden Features", color: "blue", lines: pad(hiddenLines) }
     ]);
     printRelatedCommands("advanced");
@@ -836,13 +841,7 @@ async function _runSlashCommand(cwd: string, input: string) {
   if (command === "hotspots") {
     const sortByDensity = readFlag(tokens, "--density");
     const minScore = parseInt(readOption(tokens, "--min-score") || "0", 10);
-    const result = await runScanWorkflow(cwd, { command: "hotspots" });
-
-    printPanel("Run Output", [
-      `${chalk.cyan("Saved report:")} ${result.reportPath ? result.reportPath : "(not written)"}`,
-      "",
-      chalk.dim("Reports are saved under the shown path. To disable saving, run with --no-save.")
-    ], "cyan");
+    const result = await runScanWorkflow(cwd, { command: "hotspots", writeReport: false });
 
     const topN = 10;
     const hotspots = buildHotspots(result.report, cwd, topN, sortByDensity ? "density" : "score", Number.isFinite(minScore) ? minScore : 0);
@@ -875,113 +874,18 @@ async function _runSlashCommand(cwd: string, input: string) {
         if (!file || file.messages.length === 0) continue;
         const msgLines: string[] = [];
         let fixableCount = 0;
-        for (const msg of file.messages) {
-          if (msg.fixable) fixableCount++;
-          const tag = msg.severity === 2 ? chalk.red("error") : msg.severity === 1 ? chalk.yellow("warn") : chalk.gray("info");
-          msgLines.push(`  ${tag} ${formatDiagnosticLine(msg)}`);
+        for (const { first, count: gCount } of groupMessages(file.messages)) {
+          if (first.fixable) fixableCount++;
+          const tag = first.severity === 2 ? chalk.red("error") : first.severity === 1 ? chalk.yellow("warn") : chalk.gray("info");
+          const line = `  ${tag} ${formatDiagnosticLine(first)}`;
+          const suffix = gCount > 1 ? chalk.yellow(`  +${gCount - 1} more`) : "";
+          msgLines.push(line + suffix);
         }
         const summary = [`${chalk.cyan("Score:")} ${hotspot.score}  ${chalk.red("Errors:")} ${hotspot.errors}  ${chalk.yellow("Warnings:")} ${hotspot.warnings}${fixableCount > 0 ? `  ${chalk.green("Fixable:")} ${fixableCount}` : ""}${hotspot.lineCount > 0 ? chalk.dim(`  ${hotspot.lineCount} lines`) : ""}${chalk.dim(`  ${hotspot.topCategory}`)}`];
         printPanel(`  ${hotspot.filePath}`, [...summary, "", ...msgLines], "yellow");
       }
     }
     printRelatedCommands("hotspots");
-    return { shouldExit: false };
-  }
-
-  if (command === "review") {
-    let outPath: string | undefined = readOption(tokens, "--out");
-    const noSaveFlag = readFlag(tokens, "--no-save");
-    let chosenFormat: "json" | "markdown" | "html" | undefined = undefined;
-
-    if (!outPath && !noSaveFlag) {
-      try {
-        const cfg = loadConfig(cwd);
-        const defaultPreviewPath = getReportFile(cwd, cfg, undefined, undefined as any, "review", false);
-        const saveAnswer: any = await prompt({ type: "confirm", name: "save", message: `Save review report? (default path: ${defaultPreviewPath})`, initial: true } as any);
-        if (saveAnswer.save) {
-          chosenFormat = await askForFormat(tokens, readOption(tokens, "--format"));
-          outPath = getReportFile(cwd, cfg, undefined, chosenFormat, "review");
-        } else {
-          outPath = undefined;
-        }
-      } catch {
-        chosenFormat = await askForFormat(tokens, readOption(tokens, "--format"));
-        const cfg = loadConfig(cwd);
-        outPath = getReportFile(cwd, cfg, undefined, chosenFormat, "review");
-      }
-    } else if (noSaveFlag) {
-      outPath = undefined;
-    } else if (outPath) {
-      chosenFormat = await askForFormat(tokens, readOption(tokens, "--format"));
-    }
-
-    const result = await runReviewWorkflow(cwd, {
-      changed: readFlag(tokens, "--changed"),
-      staged: readFlag(tokens, "--staged"),
-      out: outPath,
-      format: chosenFormat,
-      writeReport: outPath ? undefined : false
-    });
-
-    printPanel("Run Output", [
-      `${chalk.cyan("Saved report:")} ${result.reportPath ? result.reportPath : "(not written)"}`,
-      "",
-      chalk.dim("Reports are saved under the shown path. To disable saving, run with --no-save or set defaults.reportFile to an empty value in your better-ui config.")
-    ], "cyan");
-
-    printPanel("Review Scope", [
-      `${chalk.cyan("Scope:")} ${result.scope}`,
-      `${chalk.cyan("Score:")} ${result.report.summary.score}/100`,
-      `${chalk.cyan("Errors:")} ${chalk.red(String(result.report.summary.errors))}  ${chalk.cyan("Warnings:")} ${chalk.yellow(String(result.report.summary.warnings))}`,
-      `${chalk.cyan("Files with issues:")} ${result.report.summary.filesWithIssues}`
-      ,chalk.dim(REVIEW_DRAFT)
-    ], "cyan");
-    console.log(`\n${result.body}\n`);
-    printRelatedCommands(readFlag(tokens, "--changed") ? "review-changed" : readFlag(tokens, "--staged") ? "review-staged" : "review");
-    return { shouldExit: false };
-  }
-
-  if (command === "pr-summary") {
-    const format = await askForFormat(tokens, readOption(tokens, "--format"));
-
-    let outPath: string | undefined = readOption(tokens, "--out");
-    const noSaveFlag = readFlag(tokens, "--no-save");
-
-    if (!outPath && !noSaveFlag) {
-      try {
-        const cfg = loadConfig(cwd);
-        const defaultPath = getReportFile(cwd, cfg, undefined, format, "pr-summary", false);
-        const saveAnswer: any = await prompt({ type: "confirm", name: "save", message: `Save PR summary to ${defaultPath}?`, initial: true } as any);
-        if (saveAnswer.save) outPath = defaultPath; else outPath = undefined;
-      } catch {
-        outPath = undefined;
-      }
-    } else if (noSaveFlag) {
-      outPath = undefined;
-    }
-
-    const result = await runPrSummaryWorkflow(cwd, {
-      changed: readFlag(tokens, "--changed"),
-      staged: readFlag(tokens, "--staged"),
-      out: outPath,
-      format: format,
-      writeReport: outPath ? undefined : false
-    });
-
-    printPanel("Run Output", [
-      `${chalk.cyan("Saved report:")} ${result.reportPath ? result.reportPath : "(not written)"}`,
-      "",
-      chalk.dim("Reports are saved under the shown path. To disable saving, run with --no-save or set defaults.reportFile to an empty value in your better-ui config.")
-    ], "cyan");
-
-    printPanel("PR Summary", [
-      `${chalk.cyan("Scope:")} ${result.scope}`,
-      `${chalk.cyan("Score:")} ${result.report.summary.score}/100`,
-      `${chalk.cyan("Issues:")} ${result.report.summary.totalIssues} (${chalk.red(result.report.summary.errors)} errors, ${chalk.yellow(result.report.summary.warnings)} warnings)`,
-      chalk.dim(PR_GUIDE)
-    ], "cyan");
-    console.log(`\n${result.body}\n`);
-    printRelatedCommands("pr-summary");
     return { shouldExit: false };
   }
 
@@ -1012,7 +916,7 @@ async function _runSlashCommand(cwd: string, input: string) {
       ), "cyan");
     }
 
-    for (const file of report.files.slice(0, 5)) {
+    for (const file of report.files) {
       const fileErrors = file.messages.filter(m => m.severity === 2).length;
       const fileWarnings = file.messages.filter(m => m.severity === 1).length;
       const fileLines: string[] = [];
@@ -1024,14 +928,12 @@ async function _runSlashCommand(cwd: string, input: string) {
         fileLines.push(`  ${chalk.yellow(`${fileWarnings} warnings`)}`);
       }
 
-      for (const msg of file.messages.slice(0, 4)) {
-        const expl = explainMessage(msg);
-        const lineRef = msg.line ? ` at :${msg.line}` : "";
-        fileLines.push(`  ${chalk.dim(msg.ruleId)}${chalk.dim(lineRef)}  ${expl.title}`);
+      for (const { first, count } of groupMessages(file.messages)) {
+        const expl = explainMessage(first);
+        const lineRef = first.line ? ` at :${first.line}` : "";
+        const countStr = count > 1 ? chalk.yellow(` (${count} issues)`) : "";
+        fileLines.push(`  ${chalk.dim(first.ruleId)}${chalk.dim(lineRef)}  ${expl.title}${countStr}`);
         fileLines.push(`    ${chalk.dim("→")} ${expl.fix}`);
-      }
-      if (file.messages.length > 4) {
-        fileLines.push(chalk.dim(`  … and ${file.messages.length - 4} more issues`));
       }
 
       const color: "red" | "yellow" | "green" = fileErrors > 0 ? "red" : fileWarnings > 0 ? "yellow" : "green";
@@ -1039,8 +941,8 @@ async function _runSlashCommand(cwd: string, input: string) {
       printPanel(shortPath, fileLines, color);
     }
 
-    if (report.files.length > 5) {
-      printPanel("Remaining Files", [`${chalk.dim(`${report.files.length - 5} more files with accessibility issues`)}`], "blue");
+    if (report.files.length === 0) {
+      printPanel("No files", [chalk.dim("No files with accessibility issues found.")], "blue");
     }
 
     printRelatedCommands("check-accessibility");
@@ -1074,7 +976,7 @@ async function _runSlashCommand(cwd: string, input: string) {
       }
     }
     if (explainLines.length > 0) {
-      printPanel("Rule Explanations", explainLines.slice(0, 24), "cyan");
+      printPanel("Rule Explanations", explainLines, "cyan");
     }
 
     if (result.summary) {
@@ -1144,29 +1046,6 @@ async function _runSlashCommand(cwd: string, input: string) {
     return { shouldExit: false };
   }
 
-  if (command === "ui-audit") {
-    const start = performance.now();
-    const r = await auditUI(cwd);
-    const elapsed = ((performance.now() - start) / 1000).toFixed(2);
-    printPanel("UI Surface Audit", [
-      `${chalk.cyan("Total files:")} ${r.totalFiles}`,
-      `${chalk.cyan("HTML:")} ${r.htmlCount}  ${chalk.cyan("CSS:")} ${r.cssCount}  ${chalk.cyan("JSX/TSX:")} ${r.jsxTsxCount}`,
-      `${chalk.cyan("Images:")} ${r.imageCount}  ${chalk.cyan("Fonts:")} ${r.fontCount}`,
-      `${chalk.cyan("Viewport <meta>:")} ${r.hasViewportMeta ? chalk.green("✓") : chalk.red("✗")}`,
-      `${chalk.cyan("Theme-color <meta>:")} ${r.hasThemeColorMeta ? chalk.green("✓") : chalk.red("✗")}`,
-      `${chalk.cyan("CSS methodology:")} ${r.cssMethodology.join(", ") || "none detected"}`,
-      `${chalk.cyan("Semantic elements:")} ${r.semanticElements.join(", ") || "none"}`,
-      `${chalk.cyan("Inline styles:")} ${r.hasInlineStyles ? chalk.yellow("present") : "none"}`,
-      `${chalk.cyan("Breakpoints:")} ${r.allBreakpoints.join(", ") || "none"}`,
-      `${chalk.cyan("Font loading:")} ${r.hasFontLoading ? chalk.green("✓") : chalk.dim("no @font-face")}`,
-      `${chalk.cyan("UI Score:")} ${r.uiScore}/100`,
-      "",
-      chalk.dim(`Completed in ${elapsed}s`)
-    ], "blue");
-    printRelatedCommands("ui-audit");
-    return { shouldExit: false };
-  }
-
   if (command === "ui-colors") {
     const start = performance.now();
     const r = await scanColors(cwd);
@@ -1189,6 +1068,13 @@ async function _runSlashCommand(cwd: string, input: string) {
       chalk.dim(`Completed in ${elapsed}s`)
     ], "magenta");
     printRelatedCommands("ui-colors");
+    return { shouldExit: false };
+  }
+
+  if (command === "seo") {
+    const result = await runSeoWorkflow(cwd);
+    renderSeoReport(result);
+    printRelatedCommands("seo");
     return { shouldExit: false };
   }
 
@@ -1321,6 +1207,41 @@ async function _runSlashCommand(cwd: string, input: string) {
     return { shouldExit: false, showDashboard: true };
   }
 
+  if (command === "tech-debt") {
+    const result = await runTechDebtWorkflow(cwd);
+    renderTechDebtReport(result);
+    printRelatedCommands("tech-debt");
+    return { shouldExit: false };
+  }
+
+  if (command === "performance") {
+    const result = await runPerformanceWorkflow(cwd);
+    renderPerformanceReport(result);
+    printRelatedCommands("performance");
+    return { shouldExit: false };
+  }
+
+  if (command === "stack-audit") {
+    const result = await runStackAuditWorkflow(cwd);
+    renderStackAuditReport(result);
+    printRelatedCommands("stack-audit");
+    return { shouldExit: false };
+  }
+
+  if (command === "migration") {
+    const result = await runMigrationWorkflow(cwd);
+    renderMigrationReport(result);
+    printRelatedCommands("migration");
+    return { shouldExit: false };
+  }
+
+  if (command === "fe-score") {
+    const result = await runFeScoreWorkflow(cwd);
+    renderFeScoreReport(result);
+    printRelatedCommands("fe-score");
+    return { shouldExit: false };
+  }
+
   if (command === "exit") {
     printPanel("Command Center", ["Leaving better-ui. Bye see you soon 😊"], "green");
     return { shouldExit: true };
@@ -1349,7 +1270,15 @@ async function runSlashCommand(cwd: string, input: string) {
     printRunSummary(input);
   }
 
-  const result = await _runSlashCommand(cwd, input);
+  let result: Awaited<ReturnType<typeof _runSlashCommand>>;
+  try {
+    result = await _runSlashCommand(cwd, input);
+  } catch {
+    // Prompt cancelled (Ctrl+C) — restore stdin for the dashboard
+    try { process.stdin.resume(); } catch {}
+    try { if (process.stdin.isTTY) process.stdin.setRawMode(false); } catch {}
+    result = { shouldExit: false, showDashboard: true };
+  }
 
   // Draw Bottom Border
   console.log(`${chalk.blue("┗" + "━".repeat(termWidth - 2) + "┛")}\n`);
@@ -1423,9 +1352,7 @@ export async function runTui() {
           lines: [
             `${chalk.bold("/scan")} ${chalk.dim("Full project scan")}`,
             `${chalk.bold("/fix --interactive")} ${chalk.dim("Pick fix hunks safely")}`,
-            `${chalk.bold("/review --changed")} ${chalk.dim("Review current diff")}`,
-            `${chalk.bold("/images --generate")} ${chalk.dim("Create WebP assets")}`,
-            `${chalk.bold("/ui-audit")} ${chalk.dim("Scan UI structure and patterns")}`
+            `${chalk.bold("/images --generate")} ${chalk.dim("Create WebP assets")}`
           ]
         },
         {
@@ -1550,9 +1477,8 @@ export async function runTui() {
           }
   
         if (isPromptCloseError(err)) {
-          hardClear();
-          console.log(chalk.dim("Leaving better-ui. Bye see you soon 😊"));
-          process.exit(0);
+          forceFreshDashboard = true;
+          continue;
         }
   
         console.error("TUI error:", err);
