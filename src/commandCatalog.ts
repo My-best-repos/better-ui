@@ -31,12 +31,6 @@ export const COMMANDS: CommandDefinition[] = [
     example: "better-ui-cli /fix --apply"
   },
   {
-    name: "fix --preview (alias)",
-    slash: "/fix-preview",
-    description: "Alias for /fix. Dry-run preview of ESLint autofixes.",
-    example: "better-ui-cli /fix-preview"
-  },
-  {
     name: "fix --apply (alias)",
     slash: "/fix-apply",
     description: "Alias for /fix --apply. Apply ESLint autofixes directly.",
@@ -85,30 +79,6 @@ export const COMMANDS: CommandDefinition[] = [
     example: "better-ui-cli /a11y --changed"
   },
   {
-    name: "review",
-    slash: "/review",
-    description: "Generate a PR-style summary for changed or staged files.",
-    example: "better-ui-cli /review --changed"
-  },
-  {
-    name: "review --changed (alias)",
-    slash: "/review-changed",
-    description: "Alias for /review --changed. Review only modified files.",
-    example: "better-ui-cli /review-changed"
-  },
-  {
-    name: "review --staged (alias)",
-    slash: "/review-staged",
-    description: "Alias for /review --staged. Review only staged files.",
-    example: "better-ui-cli /review-staged"
-  },
-  {
-    name: "pr-summary",
-    slash: "/pr-summary",
-    description: "Generate a pull-request summary, defaulting to changed files.",
-    example: "better-ui-cli /pr-summary --out pr-summary.md"
-  },
-  {
     name: "explain",
     slash: "/explain",
     description: "Explain why findings matter and how to fix them.",
@@ -145,16 +115,46 @@ export const COMMANDS: CommandDefinition[] = [
     example: "better-ui-cli /menu"
   },
   {
-    name: "ui-audit",
-    slash: "/ui-audit",
-    description: "Audit UI surface: file distribution, CSS methodology, semantic HTML, responsive breakpoints, and font loading.",
-    example: "better-ui-cli /ui-audit"
-  },
-  {
     name: "ui-colors",
     slash: "/ui-colors",
     description: "Scan all color declarations across CSS and components. Detects hex, rgb, hsl, and Tailwind color classes.",
     example: "better-ui-cli /ui-colors"
+  },
+  {
+    name: "seo",
+    slash: "/seo",
+    description: "Full SEO audit: meta tags, Open Graph, Twitter Cards, structured data, content quality, and recommendations.",
+    example: "better-ui-cli /seo"
+  },
+  {
+    name: "tech-debt",
+    slash: "/tech-debt",
+    description: "Scan technical debt: TODOs, FIXMEs, HACKs, console.log, any types, and other code smells.",
+    example: "better-ui-cli /tech-debt"
+  },
+  {
+    name: "performance",
+    slash: "/performance",
+    description: "Audit frontend performance: images, render-blocking resources, heavy imports, and caching.",
+    example: "better-ui-cli /performance"
+  },
+  {
+    name: "stack-audit",
+    slash: "/stack-audit",
+    description: "Analyze the full technology stack: frameworks, build tools, testing, CI, and tooling.",
+    example: "better-ui-cli /stack-audit"
+  },
+  {
+    name: "migration",
+    slash: "/migration",
+    description: "Detect legacy patterns (class components, PropTypes, CRA, Enzyme) and suggest migration paths.",
+    example: "better-ui-cli /migration"
+  },
+  {
+    name: "fe-score",
+    slash: "/fe-score",
+    description: "Consolidated frontend health score: SEO, tech debt, performance, stack, and migration readiness.",
+    example: "better-ui-cli /fe-score"
   },
   {
     name: "ui-standards",

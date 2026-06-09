@@ -148,10 +148,6 @@ export function buildMarkdownSummary(report: ScanReport, title = "Scan Report") 
   return lines.join("\n");
 }
 
-export function buildReviewBody(report: ScanReport, branchName?: string) {
-  return buildMarkdownSummary(report, `Review for ${branchName || "changes"}`);
-}
-
 export function compareReports(previous: ScanReport, current: ScanReport) {
   return {
     scoreDelta: current.summary.score - previous.summary.score,

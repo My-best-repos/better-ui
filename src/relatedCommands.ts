@@ -7,7 +7,6 @@ type RelatedEntry = {
 
 function intentLabel(command: string) {
   if (command.includes("fix")) return "Repair";
-  if (command.includes("review") || command.includes("pr-summary")) return "Ship";
   if (command.includes("images")) return "Optimize";
   if (command.includes("menu") || command.includes("commands") || command.includes("advanced")) return "Navigate";
   return "Inspect";
@@ -24,37 +23,31 @@ const RELATED_COMMANDS: Record<string, RelatedEntry[]> = {
     { command: "/health", description: "Category scores and priorities" },
     { command: "/fix", description: "Preview or apply autofixes" },
     { command: "/hotspots", description: "Worst files by issue density" },
-    { command: "/ui-audit", description: "Audit the UI surface" }
+    { command: "/doctor", description: "Run full project diagnostic" }
   ],
   "scan-changed": [
-    { command: "/review --changed", description: "Review only modified files" },
     { command: "/fix --changed", description: "Preview fixes for modified files" },
-    { command: "/pr-summary", description: "Draft a PR summary from changes" },
-    { command: "/scan", description: "Re-scan the project" }
+    { command: "/scan", description: "Re-scan the project" },
+    { command: "/health", description: "Check updated health score" },
+    { command: "/hotspots", description: "Spot riskiest changed files" }
   ],
   "scan-staged": [
-    { command: "/review --staged", description: "Review only staged files" },
     { command: "/fix --staged", description: "Preview fixes for staged files" },
-    { command: "/pr-summary --staged", description: "Draft summary for staged work" },
-    { command: "/scan --staged", description: "Re-scan staged files" }
-  ],
-  "fix-preview": [
-    { command: "/fix --apply", description: "Write the safe autofixes" },
-    { command: "/fix --interactive", description: "Pick hunks one by one" },
-    { command: "/review --changed", description: "Review current diff before commit" },
-    { command: "/scan", description: "Re-scan the project after review" }
+    { command: "/scan --staged", description: "Re-scan staged files" },
+    { command: "/health", description: "Check staged health impact" },
+    { command: "/doctor", description: "Run full diagnostic" }
   ],
   "fix-apply": [
     { command: "/scan", description: "Measure the new score" },
-    { command: "/review --changed", description: "Review the written changes" },
-    { command: "/pr-summary", description: "Summarize the updated branch" },
-    { command: "/health", description: "Check updated health score" }
+    { command: "/health", description: "Check updated health score" },
+    { command: "/fix --interactive", description: "Pick remaining hunks" },
+    { command: "/doctor", description: "Validate config after fixes" }
   ],
   "fix-interactive": [
     { command: "/fix --apply", description: "Apply all remaining safe fixes" },
     { command: "/scan", description: "Re-scan after selected hunks" },
-    { command: "/review --changed", description: "Review the chosen edits" },
-    { command: "/health", description: "Check updated health score" }
+    { command: "/health", description: "Check updated health score" },
+    { command: "/doctor", description: "Validate config after fixes" }
   ],
   "doctor": [
     { command: "/init", description: "Generate or refresh config" },
@@ -84,43 +77,19 @@ const RELATED_COMMANDS: Record<string, RelatedEntry[]> = {
     { command: "/fix", description: "Preview fixes in risky files" },
     { command: "/explain", description: "Understand the highest-impact rules" },
     { command: "/health", description: "See category-level priorities" },
-    { command: "/review --changed", description: "Prepare a review after cleanup" }
-  ],
-  "review": [
-    { command: "/pr-summary", description: "Draft the PR body from findings" },
-    { command: "/fix", description: "Address issues before committing" },
-    { command: "/scan", description: "Run a full scan outside git scope" },
-    { command: "/ui-audit", description: "Audit the UI surface" }
-  ],
-  "review-changed": [
-    { command: "/fix --changed", description: "Preview fixes only for current diff" },
-    { command: "/pr-summary", description: "Turn the diff into PR markdown" },
-    { command: "/scan --changed", description: "Re-scan only changed files" },
-    { command: "/ui-standards", description: "Check component standards" }
-  ],
-  "review-staged": [
-    { command: "/fix --staged", description: "Preview fixes only for staged files" },
-    { command: "/pr-summary --staged", description: "Summarize staged work" },
-    { command: "/scan --staged", description: "Re-scan only staged files" },
-    { command: "/ui-colors", description: "Scan color palette" }
-  ],
-  "pr-summary": [
-    { command: "/review --changed", description: "Generate a review-style companion" },
-    { command: "/scan", description: "Rebuild the report after edits" },
-    { command: "/commands", description: "Browse more automation flows" },
-    { command: "/ui-audit", description: "Audit the UI surface" }
+    { command: "/doctor", description: "Run full diagnostic" }
   ],
   "check-accessibility": [
     { command: "/explain", description: "See why the a11y rules matter" },
     { command: "/fix", description: "Preview safe fixes in the same scope" },
     { command: "/health", description: "Check accessibility score impact" },
-    { command: "/review --changed", description: "Review the current accessibility diff" }
+    { command: "/doctor", description: "Run full diagnostic" }
   ],
   "explain": [
     { command: "/fix", description: "Preview fixes for explained issues" },
     { command: "/health", description: "See category impact of the rules" },
-    { command: "/review --changed", description: "Review the files after edits" },
-    { command: "/scan", description: "Re-scan after applying changes" }
+    { command: "/scan", description: "Re-scan after applying changes" },
+    { command: "/doctor", description: "Run full diagnostic" }
   ],
   "images": [
     { command: "/images --generate", description: "Create WebP versions" },
@@ -131,8 +100,8 @@ const RELATED_COMMANDS: Record<string, RelatedEntry[]> = {
   "images-generate": [
     { command: "/scan --scan-images", description: "Re-scan image payload" },
     { command: "/health", description: "See updated image weight impact" },
-    { command: "/review --changed", description: "Review generated assets" },
-    { command: "/ui-audit", description: "Audit the UI surface" }
+    { command: "/doctor", description: "Check project readiness" },
+    { command: "/images", description: "List all project images" }
   ],
   "init": [
     { command: "/scan", description: "Generate the first report" },
@@ -144,37 +113,67 @@ const RELATED_COMMANDS: Record<string, RelatedEntry[]> = {
     { command: "/advanced", description: "See high-leverage flags and flows" },
     { command: "/scan", description: "Run the main analysis command" },
     { command: "/menu", description: "Use the interactive command center" },
-    { command: "/review --changed", description: "Open a review-oriented branch flow" }
-  ],
-  "ui-audit": [
-    { command: "/ui-colors", description: "Scan color palette alongside the audit" },
-    { command: "/ui-standards", description: "Check component organization next" },
-    { command: "/health", description: "Cross-reference UI score with health" },
-    { command: "/scan", description: "Run full ESLint scan for deeper issues" }
+    { command: "/init", description: "Setup better-ui for a project" }
   ],
   "ui-colors": [
-    { command: "/ui-audit", description: "Full UI surface audit" },
     { command: "/images", description: "Check image weight alongside colors" },
     { command: "/health", description: "See color complexity in health context" },
-    { command: "/scan --scan-images", description: "Include images in full scan" }
+    { command: "/scan --scan-images", description: "Include images in full scan" },
+    { command: "/doctor", description: "Run full diagnostic" }
   ],
   "ui-standards": [
-    { command: "/ui-audit", description: "Audit the full UI surface" },
     { command: "/doctor", description: "Check config and scripts for standards" },
     { command: "/scan --changed", description: "Scan standards for modified files" },
-    { command: "/health", description: "Review health alongside standards" }
+    { command: "/health", description: "Review health alongside standards" },
+    { command: "/hotspots", description: "Spot riskiest files" }
   ],
   "ui-typography": [
-    { command: "/ui-audit", description: "Full UI surface audit" },
     { command: "/ui-colors", description: "Scan color palette" },
     { command: "/ui-spacing", description: "Check spacing patterns" },
-    { command: "/images", description: "Inspect font file weight" }
+    { command: "/images", description: "Inspect font file weight" },
+    { command: "/doctor", description: "Check project readiness" }
   ],
   "ui-spacing": [
     { command: "/ui-typography", description: "Audit typography alongside spacing" },
     { command: "/ui-standards", description: "Check component organization" },
-    { command: "/ui-audit", description: "Full UI surface audit" },
-    { command: "/health", description: "Review health score impact" }
+    { command: "/health", description: "Review health score impact" },
+    { command: "/doctor", description: "Run full diagnostic" }
+  ],
+  "seo": [
+    { command: "/performance", description: "Check performance alongside SEO" },
+    { command: "/scan", description: "Run a full project scan" },
+    { command: "/health", description: "Check overall project health" },
+    { command: "/doctor", description: "Run full project diagnostic" }
+  ],
+  "tech-debt": [
+    { command: "/scan", description: "Run full scan after fixing debt" },
+    { command: "/health", description: "Check updated health score" },
+    { command: "/fix", description: "Preview autofixes" },
+    { command: "/migration", description: "Check legacy patterns" }
+  ],
+  "performance": [
+    { command: "/images --generate", description: "Optimize heavy images" },
+    { command: "/scan --scan-images", description: "Include images in scan" },
+    { command: "/seo", description: "Check SEO performance" },
+    { command: "/health", description: "Check updated health score" }
+  ],
+  "stack-audit": [
+    { command: "/doctor", description: "Deep diagnostic after stack review" },
+    { command: "/health", description: "Check project health" },
+    { command: "/init", description: "Setup or update config" },
+    { command: "/deps", description: "Check dependency health" }
+  ],
+  "migration": [
+    { command: "/tech-debt", description: "Scan code smells before migrating" },
+    { command: "/scan", description: "Run full scan after migration" },
+    { command: "/fix", description: "Preview autofixes" },
+    { command: "/health", description: "Check updated health score" }
+  ],
+  "fe-score": [
+    { command: "/seo", description: "Deep-dive SEO audit" },
+    { command: "/performance", description: "Deep-dive performance audit" },
+    { command: "/tech-debt", description: "Deep-dive tech debt scan" },
+    { command: "/stack-audit", description: "Deep-dive stack analysis" }
   ]
 };
 

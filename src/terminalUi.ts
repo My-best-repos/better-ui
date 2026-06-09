@@ -142,6 +142,32 @@ export function formatDelta(value: number) {
   return value > 0 ? chalk.red(`+${value}`) : chalk.green(String(value));
 }
 
+export function groupMessages<T extends { severity: number; ruleId?: string | null; message: string }>(
+  messages: T[]
+): { first: T; count: number }[] {
+  const groups = new Map<string, T[]>();
+  for (const msg of messages) {
+    const key = `${msg.severity}|${msg.ruleId ?? ""}|${msg.message}`;
+    const existing = groups.get(key);
+    if (existing) existing.push(msg);
+    else groups.set(key, [msg]);
+  }
+  return [...groups.values()].map(g => ({ first: g[0], count: g.length }));
+}
+
+export function groupMessagesByRule<T extends { severity: number; ruleId?: string | null; message: string }>(
+  messages: T[]
+): { first: T; count: number }[] {
+  const groups = new Map<string, T[]>();
+  for (const msg of messages) {
+    const key = `${msg.severity}|${msg.ruleId ?? ""}`;
+    const existing = groups.get(key);
+    if (existing) existing.push(msg);
+    else groups.set(key, [msg]);
+  }
+  return [...groups.values()].map(g => ({ first: g[0], count: g.length }));
+}
+
 export function printFooter() {
   console.log(chalk.dim("\n──────────────────────────────────────────"));
   console.log(chalk.dim("better-ui-cli /menu — Open command center"));
