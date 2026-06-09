@@ -373,7 +373,7 @@ async function _runSlashCommand(cwd: string, input: string) {
     if (!outProvided && !noSaveFlag) {
       try {
         const cfg = loadConfig(cwd);
-        const defaultPreviewPath = getReportFile(cwd, cfg, undefined, undefined as any, "scan");
+        const defaultPreviewPath = getReportFile(cwd, cfg, undefined, undefined as any, "scan", false);
         const saveAnswer: any = await prompt({ type: "confirm", name: "save", message: `Save report? (default path: ${defaultPreviewPath})`, initial: true } as any);
         if (saveAnswer.save) {
           chosenFormat = await askForFormat(tokens, readOption(tokens, "--format"));
@@ -896,7 +896,7 @@ async function _runSlashCommand(cwd: string, input: string) {
     if (!outPath && !noSaveFlag) {
       try {
         const cfg = loadConfig(cwd);
-        const defaultPreviewPath = getReportFile(cwd, cfg, undefined, undefined as any, "review");
+        const defaultPreviewPath = getReportFile(cwd, cfg, undefined, undefined as any, "review", false);
         const saveAnswer: any = await prompt({ type: "confirm", name: "save", message: `Save review report? (default path: ${defaultPreviewPath})`, initial: true } as any);
         if (saveAnswer.save) {
           chosenFormat = await askForFormat(tokens, readOption(tokens, "--format"));
@@ -950,7 +950,7 @@ async function _runSlashCommand(cwd: string, input: string) {
     if (!outPath && !noSaveFlag) {
       try {
         const cfg = loadConfig(cwd);
-        const defaultPath = getReportFile(cwd, cfg, undefined, format, "pr-summary");
+        const defaultPath = getReportFile(cwd, cfg, undefined, format, "pr-summary", false);
         const saveAnswer: any = await prompt({ type: "confirm", name: "save", message: `Save PR summary to ${defaultPath}?`, initial: true } as any);
         if (saveAnswer.save) outPath = defaultPath; else outPath = undefined;
       } catch {

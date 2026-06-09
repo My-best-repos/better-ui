@@ -42,7 +42,7 @@ function resolveScopedFiles(projectRoot: string, options?: ScopeOptions) {
 export async function runScanWorkflow(projectRoot: string, options?: ScopeOptions & { out?: string; ext?: string[]; format?: "json" | "markdown" | "html"; writeReport?: boolean; command?: string }) {
   const config = loadConfig(projectRoot);
   const exts = getExtensions(config, options?.ext);
-  const reportPath = options?.writeReport === false ? undefined : getReportFile(projectRoot, config, options?.out, options?.format, options?.command);
+  const reportPath = options?.writeReport === false ? undefined : getReportFile(projectRoot, config, options?.out, options?.format, options?.command, true);
   const projectLabel = getProjectLabel(projectRoot, config);
   const scope = resolveScope(options);
   const scopedFiles = resolveScopedFiles(projectRoot, options);

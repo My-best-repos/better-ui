@@ -5,6 +5,9 @@ import { prompt } from "enquirer";
 import fs from "fs";
 import { exec } from "child_process";
 import { COMMANDS } from "./commandCatalog";
+
+const pkgJson = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"));
+const VERSION = pkgJson.version;
 import { runInit } from "./cli/initCommand";
 import {
   applyInteractiveHunkSelection,
@@ -56,7 +59,7 @@ const program = new Command();
 program
   .name("better-ui")
   .description("Frontend command center for scans, health insights, reviews, and image optimization")
-  .version("0.2.0")
+  .version(VERSION)
   .showHelpAfterError();
 
 addScopeOptions(
@@ -84,7 +87,7 @@ addScopeOptions(
           staged: opts.staged,
           format: opts.format,
           command: "scan",
-          writeReport: opts.noSave ? false : undefined
+          writeReport: opts.save === false ? false : undefined
         });
 
         const durationMs = Date.now() - start;
@@ -118,7 +121,7 @@ addScopeOptions(
 
         printPanel("Scan Output", [
           `${chalk.cyan("Scope:")} ${result.report.scope || "all"}`,
-          `${chalk.cyan("Saved report:")} ${result.reportPath ? path.resolve(result.reportPath) : opts.noSave ? chalk.dim("(skipped via --no-save)") : "(not written)"}`,
+          `${chalk.cyan("Saved report:")} ${result.reportPath ? path.resolve(result.reportPath) : opts.save === false ? chalk.dim("(skipped via --no-save)") : "(not written)"}`,
           `${chalk.cyan("Report size:")} ${reportSizeText}`,
           `${chalk.cyan("Duration:")} ${formatElapsed(durationMs)}`,
           `${chalk.cyan("Files with issues:")} ${result.report.summary.filesWithIssues}`,
@@ -817,13 +820,14 @@ addScopeOptions(
     .option("--out <file>", "Optional file to write the markdown summary to")
     .option("--format <format>", "json, markdown, or html", "markdown")
     .option("--no-save", "Do not write the review report to disk (still produce a result in memory)")
-    .action(async (opts: { changed?: boolean; staged?: boolean; out?: string; format?: "json" | "markdown" | "html"; noSave?: boolean }) => {
+    .action(async (opts: { changed?: boolean; staged?: boolean; out?: string; format?: "json" | "markdown" | "html"; save?: boolean }) => {
       try {
         const result = await runReviewWorkflow(process.cwd(), {
           changed: opts.changed,
           staged: opts.staged,
-          out: opts.noSave ? undefined : opts.out,
-          format: opts.format
+          out: opts.out,
+          format: opts.format,
+          writeReport: opts.save === false ? false : undefined
         });
         printCommandIntro(process.argv.slice(2).join(" ") || "/review");
 
@@ -832,7 +836,7 @@ addScopeOptions(
           `${chalk.cyan("Score:")} ${result.report.summary.score}/100`,
           `${chalk.cyan("Errors:")} ${chalk.red(String(result.report.summary.errors))}  ${chalk.cyan("Warnings:")} ${chalk.yellow(String(result.report.summary.warnings))}`,
           `${chalk.cyan("Files with issues:")} ${result.report.summary.filesWithIssues}`,
-          opts.out && !opts.noSave ? `${chalk.cyan("Written to:")} ${path.resolve(opts.out)}` : opts.noSave ? chalk.dim("Skipped writing to disk (--no-save)") : chalk.dim("Use --out review.md to save this summary."),
+          opts.out && opts.save !== false ? `${chalk.cyan("Written to:")} ${path.resolve(opts.out)}` : opts.save === false ? chalk.dim("Skipped writing to disk (--no-save)") : chalk.dim("Use --out review.md to save this summary."),
           chalk.dim(REVIEW_DRAFT)
         ], "cyan");
         console.log(`\n${result.body}\n`);
@@ -852,13 +856,14 @@ addScopeOptions(
     .option("--out <file>", "Optional file to write the markdown summary to")
     .option("--format <format>", "json, markdown, or html", "markdown")
     .option("--no-save", "Do not write the PR summary to disk (still produce a result in memory)")
-    .action(async (opts: { changed?: boolean; staged?: boolean; out?: string; format?: "json" | "markdown" | "html"; noSave?: boolean }) => {
+    .action(async (opts: { changed?: boolean; staged?: boolean; out?: string; format?: "json" | "markdown" | "html"; save?: boolean }) => {
       try {
         const result = await runPrSummaryWorkflow(process.cwd(), {
           changed: opts.changed,
           staged: opts.staged,
-          out: opts.noSave ? undefined : opts.out,
-          format: opts.format
+          out: opts.out,
+          format: opts.format,
+          writeReport: opts.save === false ? false : undefined
         });
         printCommandIntro(process.argv.slice(2).join(" ") || "/pr-summary");
 
@@ -866,7 +871,7 @@ addScopeOptions(
           `${chalk.cyan("Scope:")} ${result.scope}`,
           `${chalk.cyan("Score:")} ${result.report.summary.score}/100`,
           `${chalk.cyan("Issues:")} ${result.report.summary.totalIssues} (${chalk.red(result.report.summary.errors)} errors, ${chalk.yellow(result.report.summary.warnings)} warnings)`,
-          opts.out && !opts.noSave ? `${chalk.cyan("Written to:")} ${path.resolve(opts.out)}` : opts.noSave ? chalk.dim("Skipped writing to disk (--no-save)") : chalk.dim("Use --out pr-summary.md to save this summary."),
+          opts.out && opts.save !== false ? `${chalk.cyan("Written to:")} ${path.resolve(opts.out)}` : opts.save === false ? chalk.dim("Skipped writing to disk (--no-save)") : chalk.dim("Use --out pr-summary.md to save this summary."),
           chalk.dim(PR_GUIDE)
         ], "cyan");
         console.log(`\n${result.body}\n`);
