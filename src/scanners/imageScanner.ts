@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { walk, readFileSafe } from "./scannerUtils";
 import { resolveProjectPath, toProjectRelativePath } from "../projectPaths";
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg"]);
@@ -8,28 +9,12 @@ export async function scanImages(projectRoot: string) {
   const images: { file: string; size: number }[] = [];
   const resolvedRoot = resolveProjectPath(projectRoot, ".", "Project root");
 
-  async function walk(dir: string) {
-    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
-    for (const e of entries) {
-      if (e.isSymbolicLink()) {
-        continue;
-      }
-
-      const full = path.join(dir, e.name);
-      if (e.isDirectory()) {
-        if (e.name === "node_modules" || e.name === "dist" || e.name === ".git") continue;
-        await walk(full);
-      } else if (e.isFile()) {
-        const ext = path.extname(e.name).toLowerCase();
-        if (IMAGE_EXTENSIONS.has(ext)) {
-          const stat = await fs.promises.stat(full);
-          images.push({ file: toProjectRelativePath(resolvedRoot, full), size: stat.size });
-        }
-      }
-    }
+  const imageFiles = walk(resolvedRoot, IMAGE_EXTENSIONS);
+  for (const full of imageFiles) {
+    const stat = fs.statSync(full);
+    images.push({ file: toProjectRelativePath(resolvedRoot, full), size: stat.size });
   }
 
-  await walk(resolvedRoot);
   return images;
 }
 
