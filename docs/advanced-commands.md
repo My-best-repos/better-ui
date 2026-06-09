@@ -28,13 +28,6 @@ npx ts-node src/cli.ts /advanced
 - `/fix --changed`: Scope fixes to modified and untracked files.
 - `/fix --staged`: Scope fixes to staged files only.
 
-### Pull Requests (`/review` and `/pr-summary`)
-- `/review --changed`: Runs an isolated check against only the files currently modified in git.
-- `/review --staged`: Reviews only staged files.
-- `/review --no-save`: Prevents the review output from being written to disk.
-- `/pr-summary`: Generates a Markdown document summarizing your current branch's health impact, ready to be pasted into a GitHub or GitLab Pull Request.
-- `/pr-summary --no-save`: Prevents the PR summary from being written to disk.
-
 ### Hotspots (`/hotspots`)
 - `/hotspots`: Lists files ranked by combined issue severity and density (default: top 10).
 - `/hotspots --density`: Sort by issues per line of code instead of absolute risk score. Useful for finding small but messy files.
@@ -54,7 +47,7 @@ npx ts-node src/cli.ts /advanced
 ## Post-command Prompt
 After running a major command like `/scan` within the TUI, the interface returns to the standard pause prompt. Press `a` to return to the dashboard or press `/` to type the next slash command directly.
 
-Both the CLI and the TUI also render a small `Next Best Moves` panel after command output, including variants like `/fix --interactive`, `/review --changed`, or `/images --generate`, so the next useful step is visible immediately.
+Both the CLI and the TUI also render a small `Next Best Moves` panel after command output, including variants like `/fix --interactive` or `/images --generate`, so the next useful step is visible immediately.
 
 `/scan` remains the only command that shows the full `Scan Summary` block and score bar. Other commands use the lighter `Run Summary` intro plus their focused panels.
 
@@ -67,8 +60,6 @@ npx ts-node src/cli.ts /scan --no-save
 npx ts-node src/cli.ts /fix
 npx ts-node src/cli.ts /fix --interactive
 npx ts-node src/cli.ts /hotspots --density --min-score 3
-npx ts-node src/cli.ts /review --changed
-npx ts-node src/cli.ts /review --no-save
 npx ts-node src/cli.ts /deps
 npx ts-node src/cli.ts /init --preset next
 ```
