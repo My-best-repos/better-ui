@@ -26,7 +26,7 @@ Quick directory layout:
 
 - `src/` - application code (scanners, reporters, CLI, TUI, helpers)
 - `bin/` - light wrapper for local executable
-- `reports/` - generated command reports (scan, health, etc.)
+- `.reports/` - generated command reports (scan, health, etc.)
 - `docs/` - human- and machine-oriented documentation (split from AGENTS.md)
 
 Quick start (developer):

@@ -246,6 +246,6 @@ See `docs/release-automation.md` for details on how the release workflow works.
 - `src/scanners/dependencyScanner.ts`: unused/heavy dependency analysis.
 - `src/scanners/eslintScanner.ts`: ESLint, TypeScript, and frontend heuristics.
 - `src/scanners/imageScanner.ts`: image discovery and WebP generation.
-- `src/insights.ts`: scoring, hotspots, markdown summaries, comparisons.
+- `src/insights.ts`: scoring, hotspots, markdown summaries.
 - `src/slashCommands.ts`: slash command parsing and aliases.
 - `src/reporters/htmlReporter.ts`: visual HTML report generation.

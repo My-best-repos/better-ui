@@ -7,12 +7,12 @@
 
 | File | Tests | What it covers |
 |------|-------|----------------|
-| `commandCatalog.test.ts` | 9 | All 24 command definitions, required fields, slash uniqueness, core + alias coverage |
+| `commandCatalog.test.ts` | 9 | All 28 command definitions, required fields, slash uniqueness, core + alias coverage |
 | `presets.test.ts` | 10 | 5 presets, required fields, uniqueness, ID lookup |
 | `projectPaths.test.ts` | 11 | Path resolution inside/outside root, `..` escape, absolute paths, relative paths |
 | `slashCommands.test.ts` | 18 | Alias mapping, arg passthrough, tokenizer with quotes, non-slash exit, edge cases |
 | `explanations.test.ts` | 10 | explainMessage: ruleId, category, fixable, impact; buildExplainSummary |
-| `insights.test.ts` | 22 | buildCategoryCounts, buildScanScore (edge cases at 0/100), buildHotspots, inferCategory/Impact, buildHealthReport, buildMarkdownSummary, buildReviewBody, compareReports |
+| `insights.test.ts` | 22 | buildCategoryCounts, buildScanScore (edge cases at 0/100), buildHotspots, inferCategory/Impact, buildHealthReport, buildMarkdownSummary |
 | `relatedCommands.test.ts` | 11 | Known keys return 4 entries, default fallback (3 entries), intent labels for all categories |
 | `terminalUi.test.ts` | 7 | formatTimestamp, formatElapsed, formatDelta |
 | `config.test.ts` | 16 | loadConfig (missing/corrupt/valid), getProjectLabel, getReportFile (format-aware), getExtensions, detectFramework (7 framework detections) |

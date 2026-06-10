@@ -12,7 +12,7 @@ The CLI is slash-only at the top level. Use `/scan`, `/doctor`, `/menu`, and sim
 
 Runs ESLint, TypeScript diagnostics, and frontend heuristics across the project. Produces a report with scoring, categories, and hotspots.
 
-**Output:** report file (json/markdown/html). By default saves to `reports/scan/scan-<ISO>.json`.
+**Output:** report file (json/markdown/html). By default saves to `.reports/scan/scan-<ISO>.json`.
 
 **Flags:**
 
@@ -252,10 +252,10 @@ The HTML reporter generates a minimal template — the entire report is embedded
 
 ## Report output structure
 
-When no explicit `--out` path is provided, commands save reports to per-command subdirectories under `reports/`:
+When no explicit `--out` path is provided, commands save reports to per-command subdirectories under `.reports/`:
 
 ```
-reports/
+.reports/
 └── scan/
     ├── scan-2026-06-03T125355.json
     └── scan-2026-06-03T125500.md
@@ -267,10 +267,10 @@ The file extension depends on the format: `.json` for json, `.md` for markdown, 
 
 The CLI supports slash-style aliases via `src/slashCommands.ts` and rejects non-slash top-level invocations. Every primary menu action in the TUI has a slash equivalent.
 
-**Full alias list:** `/scan`, `/changed`, `/staged`, `/fix`, `/fix-preview`, `/fix-apply`, `/fix-interactive`, `/health`, `/doctor`, `/hotspots`, `/a11y`, `/deps`, `/explain`, `/images`, `/init`, `/seo`, `/tech-debt`, `/performance`, `/stack-audit`, `/migration`, `/fe-score`, `/advanced`, `/menu`, `/commands`, `/help`, `/exit`, `/ui-colors`, `/ui-standards`, `/ui-typography`, `/ui-spacing`.
+**Full alias list:** `/scan`, `/changed`, `/staged`, `/fix`, `/fix-apply`, `/fix-interactive`, `/health`, `/doctor`, `/hotspots`, `/a11y`, `/deps`, `/explain`, `/images`, `/init`, `/seo`, `/tech-debt`, `/performance`, `/stack-audit`, `/migration`, `/fe-score`, `/advanced`, `/menu`, `/commands`, `/exit`, `/ui-colors`, `/ui-standards`, `/ui-typography`, `/ui-spacing`.
 
 ## Notes for automation and AI agents
 
 - The output formats are deterministic JSON/Markdown/HTML; automated consumers should prefer JSON for machine parsing.
 - When applying fixes automatically, prefer creating a branch or making a reviewable PR. `fix --interactive` is safer because it limits writes to selected hunks.
-- Reports are saved under `reports/<command>/` by default. Use `--out` or `--no-save` to control output behavior.
+- Reports are saved under `.reports/<command>/` by default. Use `--out` or `--no-save` to control output behavior.

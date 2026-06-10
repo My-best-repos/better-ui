@@ -14,7 +14,6 @@ For discoverability, `Ctrl+Shift+S` and `/commands` both open the command palett
 - `/changed`
 - `/staged`
 - `/fix`
-- `/fix-preview`
 - `/fix-apply`
 - `/fix-interactive`
 - `/health`
@@ -33,7 +32,6 @@ For discoverability, `Ctrl+Shift+S` and `/commands` both open the command palett
 - `/ui-typography`
 - `/ui-spacing`
 - `/commands`
-- `/help`
 - `/menu`
 - `/exit`
 
@@ -47,7 +45,7 @@ Then test these flows:
 
 ```text
 type /scan and press Enter, then press `/` to type another command or `a` to return
-type /fix-preview and press Enter
+type /fix and press Enter
 press Ctrl+Shift+S to open the command palette
 type /commands to open the same palette
 press Esc to leave the TUI
