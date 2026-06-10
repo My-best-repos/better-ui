@@ -31,15 +31,34 @@ export function printSummary(report: ScanReport) {
 
   console.log(table.toString());
 
+  const MAX_EXAMPLES_PER_GROUP = 5;
+
   for (const f of report.files as FileReport[]) {
     if (f.messages.length === 0) continue;
     console.log(chalk.dim(`\n${f.filePath}:`));
+
+    const groups = new Map<string, typeof f.messages>();
     for (const msg of f.messages) {
-      const loc = msg.line !== null ? chalk.gray(`:${msg.line}${msg.column !== null ? `:${msg.column}` : ""}`) : "";
-      const tag = severityLabel(msg.severity);
-      const rule = msg.ruleId ? chalk.cyan(msg.ruleId) : chalk.gray("(general)");
-      const text = msg.message.length > 120 ? msg.message.slice(0, 120) + "..." : msg.message;
-      console.log(`  ${tag} ${rule}${loc}  ${chalk.dim(text)}`);
+      const key = `${msg.severity}|${msg.ruleId ?? "(general)"}|${msg.message}`;
+      const existing = groups.get(key);
+      if (existing) existing.push(msg);
+      else groups.set(key, [msg]);
+    }
+
+    for (const group of groups.values()) {
+      const first = group[0];
+      const tag = severityLabel(first.severity);
+      const rule = first.ruleId ? chalk.cyan(first.ruleId) : chalk.gray("(general)");
+      const text = first.message.length > 120 ? first.message.slice(0, 120) + "..." : first.message;
+
+      if (group.length === 1) {
+        const loc = first.line !== null ? chalk.gray(`:${first.line}${first.column !== null ? `:${first.column}` : ""}`) : "";
+        console.log(`  ${tag} ${rule}${loc}  ${chalk.dim(text)}`);
+      } else {
+        const example = first.line !== null ? chalk.gray(`:${first.line}:${first.column ?? ""}`) : "";
+        const extra = group.length - 1;
+        console.log(`  ${tag} ${rule}${example}  ${chalk.dim(text)}  ${chalk.yellow(`+${extra} more`)}`);
+      }
     }
   }
 
@@ -51,5 +70,5 @@ export function printSummary(report: ScanReport) {
     console.log(chalk.dim(`\nCategories: ${categories}`));
   }
 
-  console.log(chalk.dim("\nUse `better-ui-cli /health`, `better-ui-cli /review --changed`, or `better-ui-cli /menu` for richer workflows."));
+  console.log(chalk.dim("\nUse `better-ui-cli /health` or `better-ui-cli /menu` for richer workflows."));
 }

@@ -1,23 +1,6 @@
 import fs from "fs";
 import path from "path";
 
-export interface UIAuditReport {
-  totalFiles: number;
-  htmlCount: number;
-  cssCount: number;
-  jsxTsxCount: number;
-  imageCount: number;
-  fontCount: number;
-  hasViewportMeta: boolean;
-  hasThemeColorMeta: boolean;
-  cssMethodology: string[];
-  semanticElements: string[];
-  hasInlineStyles: boolean;
-  allBreakpoints: string[];
-  hasFontLoading: boolean;
-  uiScore: number;
-}
-
 export interface ColorEntry {
   value: string;
   count: number;
@@ -83,93 +66,7 @@ function readFileSafe(filePath: string): string | null {
   }
 }
 
-const SEMANTIC_ELEMENTS = ["header", "nav", "main", "article", "section", "aside", "footer", "figure", "figcaption", "time", "mark"];
 const TAILWIND_PATTERN = /className=["'`][^"'`]*(?:text|bg|border|ring|shadow|outline|ring-offset|from|via|to|divide|placeholder|space|translate|rotate|scale|skew|origin|transition|duration|ease|delay|animate|font|tracking|leading|whitespace|break|truncate|underline|line-clamp|prose|container|grid|flex|col|row|gap|p|m|h|w|min|max|inset|top|right|bottom|left|z|order|float|clear|display|overflow|overscroll|visibility|opacity|mix-blend|bg-blend|box|object|isolation|appearance|pointer|cursor|resize|select|snap|scroll|touch|user|fill|stroke)[a-z-]+[ "'`]/;
-
-export async function auditUI(projectRoot: string): Promise<UIAuditReport> {
-  const htmlFiles = walk(projectRoot, new Set([".html", ".htm"]));
-  const cssFiles = walk(projectRoot, CSS_EXTS);
-  const componentFiles = walk(projectRoot, COMPONENT_EXTS);
-  const imageFiles = walk(projectRoot, IMAGE_EXTS);
-  const fontFiles = walk(projectRoot, FONT_EXTS);
-  const allFiles = [...htmlFiles, ...cssFiles, ...componentFiles, ...imageFiles, ...fontFiles];
-
-  let hasViewportMeta = false;
-  let hasThemeColorMeta = false;
-  let hasFontLoading = false;
-  let hasInlineStyles = false;
-  const semanticFound = new Set<string>();
-  const allBreakpoints = new Set<string>();
-  const methods = new Set<string>();
-
-  for (const html of htmlFiles) {
-    const content = readFileSafe(html);
-    if (!content) continue;
-    if (/name=["']viewport["']/i.test(content)) hasViewportMeta = true;
-    if (/name=["']theme-color["']/i.test(content)) hasThemeColorMeta = true;
-    if (/(?:https:)?\/\/fonts\.googleapis\.com/i.test(content)) hasFontLoading = true;
-    const bpMatches = content.matchAll(/@media\s*\([^)]*(?:min|max)-width\s*:\s*(\d+)\s*px\)/gi);
-    for (const m of bpMatches) allBreakpoints.add(`${m[1]}px`);
-  }
-
-  for (const css of cssFiles) {
-    const content = readFileSafe(css);
-    if (!content) continue;
-    const bpMatches = content.matchAll(/@media\s*\([^)]*(?:min|max)-width\s*:\s*(\d+)\s*px\)/gi);
-    for (const m of bpMatches) allBreakpoints.add(`${m[1]}px`);
-    if (/@import\s+['"](?:tailwind|@tailwind)/i.test(content)) methods.add("PostCSS / Tailwind (direct)");
-    if (/\.module\.(css|scss|sass|less)/i.test(css)) methods.add("CSS Modules");
-    if (/font-face\s*\{/i.test(content)) hasFontLoading = true;
-    if (/style\s*=\s*["']/i.test(content)) hasInlineStyles = true;
-  }
-
-  for (const comp of componentFiles) {
-    const content = readFileSafe(comp);
-    if (!content) continue;
-    if (/style\s*=\s*\{[^}]*\}/i.test(content) || /style\s*=\s*["']/i.test(content)) hasInlineStyles = true;
-    if (TAILWIND_PATTERN.test(content)) methods.add("Tailwind CSS");
-    if (/import\s+.*\bstyled\b/i.test(content) || /from\s+['"]styled-components['"]/i.test(content) || /from\s+['"]@emotion/i.test(content)) methods.add("CSS-in-JS (styled)");
-    if (/from\s+['"].*\.module\.(css|scss|sass)['"]/i.test(content)) methods.add("CSS Modules");
-    for (const el of SEMANTIC_ELEMENTS) {
-      if (new RegExp(`<${el}[\\s>]`, "i").test(content)) semanticFound.add(el);
-    }
-    if (/<[A-Z][a-zA-Z]*\s+[^>]*fontFamily/i.test(content)) hasFontLoading = true;
-    if (hasFontLoading) continue;
-  }
-
-  const bpArray = [...allBreakpoints].sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-  const semanticArray = [...semanticFound].sort();
-
-  if (methods.size === 0 && cssFiles.length > 0) methods.add("Plain CSS");
-  if (methods.size === 0 && componentFiles.length > 0) methods.add("None detected");
-  if (methods.size === 0 && cssFiles.length === 0 && componentFiles.length === 0) methods.add("No UI files to analyze");
-
-  let score = 100;
-  if (!hasViewportMeta && htmlFiles.length > 0) score -= 15;
-  if (hasInlineStyles) score -= 10;
-  if (!semanticFound.size && componentFiles.length > 5) score -= 10;
-  if (!hasFontLoading && (fontFiles.length > 0 || htmlFiles.length > 0)) score -= 5;
-  if (!hasThemeColorMeta && htmlFiles.length > 0) score -= 5;
-  if (bpArray.length === 0 && cssFiles.length > 0) score -= 5;
-  if (htmlFiles.length === 0 && componentFiles.length === 0) score = 0;
-
-  return {
-    totalFiles: allFiles.length,
-    htmlCount: htmlFiles.length,
-    cssCount: cssFiles.length,
-    jsxTsxCount: componentFiles.length,
-    imageCount: imageFiles.length,
-    fontCount: fontFiles.length,
-    hasViewportMeta,
-    hasThemeColorMeta,
-    cssMethodology: [...methods],
-    semanticElements: semanticArray,
-    hasInlineStyles,
-    allBreakpoints: bpArray,
-    hasFontLoading,
-    uiScore: Math.max(0, score)
-  };
-}
 
 const HEX_COLOR = /#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/g;
 const RGB_COLOR = /rgba?\s*\([^)]+\)/gi;
@@ -187,7 +84,6 @@ export async function scanColors(projectRoot: string): Promise<ColorReport> {
   const cssCustomProps = new Set<string>();
   let hasInconsistencies = false;
 
-  const closeVariants = new Map<string, string[]>();
   const addColor = (value: string, file: string) => {
     const key = value.toLowerCase().trim();
     const entry = colorMap.get(key) || { count: 0, files: new Set() };

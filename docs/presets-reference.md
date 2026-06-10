@@ -18,7 +18,7 @@ Each preset sets three values in `better-ui.config.json`:
 
 1. **`reportFile`** — The default output path for scan reports (default: `better-ui-report.txt`).
 2. **`extensions`** — Which file extensions the scanner processes. Language-specific presets restrict to relevant extensions.
-3. **Injected scripts** — `/init` also adds informational `better-ui:*` scripts to `package.json` (scan, fix, health, doctor, a11y, review, pr-summary, init, tui).
+3. **Injected scripts** — `/init` also adds informational `better-ui:*` scripts to `package.json` (scan, fix, health, doctor, a11y, init, tui).
 
 ## Example
 

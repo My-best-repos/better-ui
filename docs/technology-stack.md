@@ -35,7 +35,7 @@
 | `src/scanners/` | ESLint, image, and dependency scanners |
 | `src/reporters/` | Terminal, markdown, HTML, and report formatting |
 | `src/terminalUi.ts` | Shared terminal panels, grids, score bar, and run summary helpers |
-| `src/insights.ts` | Scoring, category inference, hotspots, markdown summaries, comparisons |
+| `src/insights.ts` | Scoring, category inference, hotspots, markdown summaries |
 | `src/explanations.ts` | Human-readable why/fix/risk per rule |
 | `src/config.ts` | Config loading, framework detection, report path resolution |
 | `src/presets.ts` | Init preset definitions (react, next, vite, etc.) |

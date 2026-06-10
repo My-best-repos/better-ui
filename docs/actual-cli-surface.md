@@ -12,7 +12,7 @@ The CLI is slash-only at the top level. Use `/scan`, `/doctor`, `/menu`, and sim
 
 Runs ESLint, TypeScript diagnostics, and frontend heuristics across the project. Produces a report with scoring, categories, and hotspots.
 
-**Output:** report file (json/markdown/html). By default saves to `reports/scan/scan-<ISO>.json`.
+**Output:** report file (json/markdown/html). By default saves to `.reports/scan/scan-<ISO>.json`.
 
 **Flags:**
 
@@ -97,28 +97,6 @@ Filters the full scan to accessibility-related findings only (rules tagged under
 
 ---
 
-### `review` — PR-style review
-
-Generates a PR-style markdown summary for changed, staged, or all files. Output includes an executive summary, critical issue list, and per-file findings.
-
-**Flags:**
-
-| Flag | Type | Description |
-|------|------|-------------|
-| `--changed` | boolean | Scope to modified and untracked files |
-| `--staged` | boolean | Scope to staged files only |
-| `--out <path>` | string | Write the summary to a file (e.g. `review.md`) |
-| `--format <format>` | json \| markdown \| html | Output format (default: markdown) |
-| `--no-save` | boolean | Skip writing to disk |
-
----
-
-### `pr-summary` — Pull request summary
-
-Produces a PR-ready markdown document summarizing the current branch's health impact, defaulting to changed files. Ready to paste into GitHub or GitLab.
-
-**Flags:** same as `review` (`--changed`, `--staged`, `--out`, `--format`, `--no-save`).
-
 ---
 
 ### `explain [target]` — Issue explanations
@@ -126,6 +104,54 @@ Produces a PR-ready markdown document summarizing the current branch's health im
 Converts raw lint findings into human-friendly why/fix/risk guidance. Optionally accepts a file path to scope the explanation to a single file.
 
 **Output:** per-rule explanation with why the issue matters, how to fix it, and the estimated risk level. Sources data from `src/explanations.ts`.
+
+---
+
+### `seo` — SEO audit (improved)
+
+Full SEO audit across HTML and component files: meta tags, Open Graph, Twitter Cards, structured data, content quality (headings, alt text, word count), links (internal/external, noopener), and performance hints (preload, preconnect, render-blocking).
+
+No additional flags. Sources data from `src/scanners/seoScanner.ts`.
+
+---
+
+### `tech-debt` — Technical debt scan
+
+Scans the codebase for code smells: TODO/FIXME/HACK/XXX comments, console.log, debugger, `:any` types, loose equality (`==`), `var` declarations, commented-out code, empty catch blocks, and large files over 300 lines.
+
+No additional flags. Sources data from `src/scanners/techDebtScanner.ts`.
+
+---
+
+### `performance` — Frontend performance audit
+
+Analyzes images (total/size/oversized/without dimensions/without lazy loading), render-blocking scripts and stylesheets, resource hints (preconnect, preload, prefetch), heavy imports, service worker, and cache policies.
+
+No additional flags. Sources data from `src/scanners/performanceScanner.ts`.
+
+---
+
+### `stack-audit` — Full technology stack analysis
+
+Detects frameworks, build tools, CSS frameworks, package manager, Node.js/TypeScript versions, test runner, linter, formatter, CI config, pre-commit hooks, Dockerfile, Storybook, monorepo config, and bundle analyzer presence.
+
+No additional flags. Sources data from `src/scanners/stackAuditScanner.ts`.
+
+---
+
+### `migration` — Migration readiness scan
+
+Detects legacy patterns: class components, PropTypes, CRA references, Enzyme, deprecated lifecycle methods, and other outdated patterns. Reports occurrences with sample files and migration suggestions.
+
+No additional flags. Sources data from `src/scanners/migrationScanner.ts`.
+
+---
+
+### `fe-score` — Consolidated frontend health score
+
+Aggregates results from SEO, tech debt, performance, stack audit, and migration scanners into a single weighted score (0-100). Weights: SEO 20%, Tech Debt 20%, Performance 20%, Stack & Tooling 15%, Migration Readiness 15%. Shows top 10 consolidated recommendations.
+
+No additional flags. No standalone scanner — built from `runFeScoreWorkflow` in `src/cli/workflows.ts`.
 
 ---
 
@@ -182,10 +208,6 @@ Renders a categorized cheat sheet with advanced flags, subcommands, and hidden p
 
 ---
 
-### `ui-audit` — UI surface audit
-
-Scans file distribution, CSS methodology, semantic HTML, responsive breakpoints, font loading. Returns a 0-100 UI score. Accepts `--out <file>` to save a report.
-
 ### `ui-colors` — Color palette scan
 
 Scans hex, rgb, hsl, and Tailwind color declarations across CSS and component files. Reports unique colors, frequency, inconsistencies, and CSS custom properties. Accepts `--out <file>`.
@@ -230,15 +252,13 @@ The HTML reporter generates a minimal template — the entire report is embedded
 
 ## Report output structure
 
-When no explicit `--out` path is provided, commands save reports to per-command subdirectories under `reports/`:
+When no explicit `--out` path is provided, commands save reports to per-command subdirectories under `.reports/`:
 
 ```
-reports/
-├── scan/
-│   ├── scan-2026-06-03T125355.json
-│   └── scan-2026-06-03T125500.md
-└── review/
-    └── review-2026-06-03T130000.md
+.reports/
+└── scan/
+    ├── scan-2026-06-03T125355.json
+    └── scan-2026-06-03T125500.md
 ```
 
 The file extension depends on the format: `.json` for json, `.md` for markdown, `.html` for html. The timestamp is ISO-8601 compact format.
@@ -247,10 +267,10 @@ The file extension depends on the format: `.json` for json, `.md` for markdown, 
 
 The CLI supports slash-style aliases via `src/slashCommands.ts` and rejects non-slash top-level invocations. Every primary menu action in the TUI has a slash equivalent.
 
-**Full alias list:** `/scan`, `/changed`, `/staged`, `/fix`, `/fix-preview`, `/fix-apply`, `/fix-interactive`, `/health`, `/doctor`, `/hotspots`, `/a11y`, `/review`, `/review-changed`, `/review-staged`, `/pr-summary`, `/deps`, `/explain`, `/images`, `/init`, `/advanced`, `/menu`, `/commands`, `/help`, `/exit`, `/ui-audit`, `/ui-colors`, `/ui-standards`, `/ui-typography`, `/ui-spacing`.
+**Full alias list:** `/scan`, `/changed`, `/staged`, `/fix`, `/fix-apply`, `/fix-interactive`, `/health`, `/doctor`, `/hotspots`, `/a11y`, `/deps`, `/explain`, `/images`, `/init`, `/seo`, `/tech-debt`, `/performance`, `/stack-audit`, `/migration`, `/fe-score`, `/advanced`, `/menu`, `/commands`, `/exit`, `/ui-colors`, `/ui-standards`, `/ui-typography`, `/ui-spacing`.
 
 ## Notes for automation and AI agents
 
 - The output formats are deterministic JSON/Markdown/HTML; automated consumers should prefer JSON for machine parsing.
 - When applying fixes automatically, prefer creating a branch or making a reviewable PR. `fix --interactive` is safer because it limits writes to selected hunks.
-- Reports are saved under `reports/<command>/` by default. Use `--out` or `--no-save` to control output behavior.
+- Reports are saved under `.reports/<command>/` by default. Use `--out` or `--no-save` to control output behavior.

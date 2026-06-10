@@ -42,7 +42,7 @@ Init presets:
 
 Report output paths:
 
-- When no `--out` is specified and a `command` name is available, reports save to `reports/<command>/<command>-<ISO>.<ext>` (e.g., `reports/scan/scan-2026-06-03T125355.json`).
+- When no `--out` is specified and a `command` name is available, reports save to `.reports/<command>/<command>-<ISO>.<ext>` (e.g., `.reports/scan/scan-2026-06-03T125355.json`).
 - The directory is created automatically.
 - `--out <path>` always overrides the default path.
 - `--no-save` skips writing the report to disk entirely.

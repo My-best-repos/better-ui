@@ -32,7 +32,7 @@
     "health": "ts-node src/cli.ts /health",
     "doctor": "ts-node src/cli.ts /doctor",
     "a11y": "ts-node src/cli.ts /a11y",
-    "build": "node -e \"require('fs').rmSync('dist',{ recursive: true, force: true })\" && tsc",
+    "build": "node -e \"require('fs').rmSync('dist',{ recursive: true, force: true })\" && tsc && node -e \"require('fs').copyFileSync('package.json','dist/package.json')\"",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
@@ -50,8 +50,6 @@
     "better-ui:health": "better-ui-cli /health",
     "better-ui:doctor": "better-ui-cli /doctor",
     "better-ui:a11y": "better-ui-cli /a11y",
-    "better-ui:review": "better-ui-cli /review --changed",
-    "better-ui:pr-summary": "better-ui-cli /pr-summary --out pr-summary.md",
     "better-ui:init": "better-ui-cli /init",
     "better-ui:tui": "better-ui-cli /menu"
   },
@@ -62,7 +60,6 @@
     "eslint",
     "typescript",
     "a11y",
-    "review",
     "open-source"
   ],
   "author": "David Alarcón <davidalarconcontact@gmail.com> (https://github.com/davidalarcondev)",

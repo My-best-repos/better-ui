@@ -7,7 +7,8 @@ reports/
 tmp-report.json
 report.html
 report.md
-pr-summary.md
-review.md
-
 .atl/
+better-ui.config.json
+.DS_Store
+Thumbs.db
+*.tgz

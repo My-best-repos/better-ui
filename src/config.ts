@@ -37,7 +37,7 @@ export function getProjectLabel(projectRoot: string, config: BetterUiConfig) {
   return config.projectName?.trim() || path.basename(projectRoot) || "better-ui";
 }
 
-export function getReportFile(projectRoot: string, config: BetterUiConfig, explicitOut?: string, format?: "json" | "markdown" | "html", command?: string) {
+export function getReportFile(projectRoot: string, config: BetterUiConfig, explicitOut?: string, format?: "json" | "markdown" | "html", command?: string, createDir = false) {
   if (explicitOut) {
     return resolveProjectPath(projectRoot, explicitOut, "Report output");
   }
@@ -52,9 +52,11 @@ export function getReportFile(projectRoot: string, config: BetterUiConfig, expli
     const s = String(now.getSeconds()).padStart(2, "0");
     const ts = `${y}-${mo}-${d}T${h}${mi}${s}`;
     const ext = format === "html" ? "html" : format === "markdown" ? "md" : "json";
-    const relPath = path.join("reports", command, `${command}-${ts}.${ext}`);
+    const relPath = path.join(".reports", command, `${command}-${ts}.${ext}`);
     const fullPath = resolveProjectPath(projectRoot, relPath, "Report output");
-    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    if (createDir) {
+      fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    }
     return fullPath;
   }
 

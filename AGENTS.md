@@ -18,7 +18,7 @@ What this repository contains (operational summary)
 
 - Purpose: a terminal-first tool to scan frontend code, compute a health score, generate reports, and help apply fixes with interactive workflows.
 - CLI entry: `src/cli.ts` — maps commands to workflows and reporters.
-- Workflows: `src/cli/workflows.ts` — orchestrates scan, fix, doctor, pr-summary, explain, etc.
+- Workflows: `src/cli/workflows.ts` — orchestrates scan, fix, doctor, review, explain, etc.
 - Scanners: `src/scanners/` — `eslintScanner.ts` (ESLint + TypeScript diagnostics + heuristics), `imageScanner.ts` (discover and generate WebP), and `dependencyScanner.ts` (unused/heavy dependency analysis).
 - Reporters: `src/reporters/` — JSON, HTML, and terminal reporters.
 - Interactive UI: `src/tui/app.ts` — Enquirer-based TUI for dashboards and review flows.
@@ -69,9 +69,10 @@ Where to modify code depending on the change type
 - Dependency Scanner: `docs/dependency-scanner.md` documents how the unused/heavy dependency analysis works.
 - Advanced Commands: `docs/advanced-commands.md` documents flags, the TUI post-command prompt flow, and the `/advanced` catalog.
 - Technology Stack: `docs/technology-stack.md` documents the main runtime, CLI/TUI, linting, and testing technologies used by the project.
-- UI Commands: `docs/ui-commands.md` documents the filesystem-only UI scanners: `/ui-audit`, `/ui-colors`, `/ui-standards`, `/ui-typography`, and `/ui-spacing`.
+- UI Commands: `docs/ui-commands.md` documents the filesystem-only UI scanners: `/ui-colors`, `/ui-standards`, `/ui-typography`, and `/ui-spacing`.
 - Hotspots: `docs/hotspots-command.md` documents the `/hotspots` command and its flags (`--density`, `--min-score`, `--top`).
 - Init Presets: `docs/presets-reference.md` documents the available `/init --preset` options and their configuration.
+- Scanner Commands: `docs/scanner-commands.md` documents the six standalone scanners: `/seo`, `/tech-debt`, `/performance`, `/stack-audit`, `/migration`, and `/fe-score`.
 
 Quick verification commands
 

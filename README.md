@@ -92,13 +92,12 @@ npx better-ui-cli
 npx better-ui-cli /menu
 npx better-ui-cli /scan
 npm exec better-ui-cli -- /health
-pnpm dlx better-ui-cli /review --changed
 ```
 
 Behavior rules:
 
 - `better-ui-cli` with no arguments opens the command center.
-- Any explicit action beyond opening the menu must still use slash commands such as `/scan`, `/health`, or `/review --changed`.
+- Any explicit action beyond opening the menu must still use slash commands such as `/scan` or `/health`.
 - Non-slash top-level commands remain rejected on purpose.
 
 During repository development, you can still run the source entrypoint directly:
@@ -119,10 +118,7 @@ That source form is only for working inside the `better-ui` repository itself.
 3. **Find dead dependencies**
    `npx ts-node src/cli.ts /deps`
 
-4. **Review current work before commit**
-   `npx ts-node src/cli.ts /review --changed`
-
-5. **Check health score**
+4. **Check health score**
    `npx ts-node src/cli.ts /health`
 
 6. **Explain findings for a file or report**
@@ -161,15 +157,18 @@ The CLI is slash-only. Use commands such as:
 - `better-ui-cli /doctor`
 - `better-ui-cli /hotspots`
 - `better-ui-cli /a11y`
-- `better-ui-cli /review`
-- `better-ui-cli /pr-summary`
 - `better-ui-cli /deps`
 - `better-ui-cli /explain`
 - `better-ui-cli /images`
+- `better-ui-cli /seo`
+- `better-ui-cli /tech-debt`
+- `better-ui-cli /performance`
+- `better-ui-cli /stack-audit`
+- `better-ui-cli /migration`
+- `better-ui-cli /fe-score`
 - `better-ui-cli /init`
 - `better-ui-cli /menu`
 - `better-ui-cli /advanced`
-- `better-ui-cli /ui-audit`
 - `better-ui-cli /ui-colors`
 - `better-ui-cli /ui-standards`
 - `better-ui-cli /ui-typography`
@@ -181,10 +180,9 @@ Inside the TUI, you can use these directly:
 - `/scan`, `/changed`, `/staged`
 - `/fix`, `/fix-interactive`, `/fix-apply`
 - `/health`, `/doctor`, `/hotspots`, `/a11y`
-- `/review`, `/review-changed`, `/review-staged`, `/pr-summary`
-- `/deps`, `/explain`, `/images`, `/init`
+- `/deps`, `/explain`, `/images`, `/seo`, `/tech-debt`, `/performance`, `/stack-audit`, `/migration`, `/fe-score`, `/init`
 - `/advanced`, `/menu`, `/commands`, `/exit`
-- `/ui-audit`, `/ui-colors`, `/ui-standards`, `/ui-typography`, `/ui-spacing`
+- `/ui-colors`, `/ui-standards`, `/ui-typography`, `/ui-spacing`
 
 ## Reports and scoring
 
@@ -202,8 +200,6 @@ Supported formats: `json`, `markdown`, `html`
 When the current directory is a git repository, `better-ui-cli` can scope work to the current diff.
 - `/changed` scans modified, staged, and untracked files.
 - `/staged` scans only staged files.
-- `/review --changed` creates a PR-style summary for current work.
-- `/pr-summary` defaults to changed files and is ready to paste into a pull request.
 - `/fix --interactive` can select individual diff blocks to safely apply auto-fixes.
 
 ## TUI
@@ -216,12 +212,12 @@ Every primary action exposed in the TUI has a slash-command equivalent. After ru
 
 ## Configuration
 
-`better-ui-cli /init` creates `better-ui.config.json`. You can also start with presets (`react`, `next`, `vite`, `vue`, `design-system`, `landing-page`, `typescript-library`).
+`better-ui-cli /init` creates `better-ui.config.json`. You can also start with presets (`react`, `next`, `vite`, `landing-page`, `typescript-library`).
 
 ## Security and guardrails
 
 - Local-only tool. No outbound network behavior in product code.
-- Report, review, image, and history outputs stay inside the project root.
+- Report, image, and history outputs stay inside the project root.
 - File traversal skips `node_modules`, `dist`, `.git`, and symlinks.
 - Fix mode is dry-run by default.
 - `fix --interactive` writes only the selected diff blocks after confirmation.
@@ -245,11 +241,11 @@ See `docs/release-automation.md` for details on how the release workflow works.
 
 - `src/cli.ts`: CLI entrypoint and command surface.
 - `src/tui/app.ts`: interactive command center.
-- `src/cli/workflows.ts`: shared scan/fix/health/review workflows.
+- `src/cli/workflows.ts`: shared scan/fix/health workflows.
 - `src/explanations.ts`: human-readable issue explanations and guidance.
 - `src/scanners/dependencyScanner.ts`: unused/heavy dependency analysis.
 - `src/scanners/eslintScanner.ts`: ESLint, TypeScript, and frontend heuristics.
 - `src/scanners/imageScanner.ts`: image discovery and WebP generation.
-- `src/insights.ts`: scoring, hotspots, markdown summaries, comparisons.
+- `src/insights.ts`: scoring, hotspots, markdown summaries.
 - `src/slashCommands.ts`: slash command parsing and aliases.
 - `src/reporters/htmlReporter.ts`: visual HTML report generation.

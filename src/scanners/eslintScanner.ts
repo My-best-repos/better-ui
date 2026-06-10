@@ -10,7 +10,6 @@ import { inferCategory, inferImpact } from "../insights";
 
 const DEFAULT_EXTENSIONS = [".js", ".jsx", ".ts", ".tsx"];
 const LINT_FILE_PATTERNS = ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx"];
-const LINT_IGNORES = ["**/node_modules/**", "**/dist/**", "**/.git/**", "**/*.d.ts"];
 const ESLINT_CONFIG_FILES = [
   "eslint.config.js",
   "eslint.config.mjs",
@@ -19,6 +18,61 @@ const ESLINT_CONFIG_FILES = [
   "eslint.config.mts",
   "eslint.config.cts"
 ];
+
+const BETTER_UI_CONFIG_FILES = ["better-ui.config.json"];
+
+function loadBetterUiConfig(projectRoot: string): string[] {
+  for (const configFile of BETTER_UI_CONFIG_FILES) {
+    const fullPath = path.join(projectRoot, configFile);
+    if (fs.existsSync(fullPath)) {
+      try {
+        const content = fs.readFileSync(fullPath, "utf8");
+        const config = JSON.parse(content);
+        if (config.lint?.ignores && Array.isArray(config.lint.ignores)) {
+          return config.lint.ignores;
+        }
+      } catch {
+        // ignore parse errors, fall back to defaults
+      }
+    }
+  }
+  return getDefaultIgnores();
+}
+
+function getDefaultIgnores(): string[] {
+  return [
+    "node_modules/**",
+    "dist/**",
+    ".git/**",
+    "coverage/**",
+    ".next/**",
+    ".turbo/**",
+    ".vercel/**",
+    "build/**",
+    "*.config.*",
+    "*.lock",
+    ".DS_Store",
+    ".cache/**",
+    ".parcel-cache/**",
+    ".webpack/**",
+    ".eslintcache",
+    ".stylelintcache",
+    ".pnp.*",
+    ".yarn/**",
+    ".nyc_output/**",
+    "*.tsbuildinfo",
+    ".vitest/**",
+    ".playwright/**",
+    ".cypress/**",
+    "storybook-static/**",
+    ".docusaurus/**",
+    "public/build/**",
+    "out/**",
+    ".expo/**",
+    ".svelte-kit/**",
+    ".astro/**"
+  ];
+}
 
 function normalizeExtensions(exts?: string[]) {
   return exts && exts.length > 0 ? exts : DEFAULT_EXTENSIONS;
@@ -41,6 +95,7 @@ function findEslintConfigFile(projectRoot: string) {
 
 function createEslint(projectRoot: string, fix = false) {
   const configFile = findEslintConfigFile(projectRoot);
+  const defaultIgnores = loadBetterUiConfig(projectRoot);
 
   return new ESLint({
     cwd: projectRoot,
@@ -48,7 +103,7 @@ function createEslint(projectRoot: string, fix = false) {
     overrideConfigFile: configFile ?? true,
     overrideConfig: configFile ? undefined : [
       {
-        ignores: LINT_IGNORES
+        ignores: defaultIgnores
       },
       {
         files: LINT_FILE_PATTERNS,
@@ -85,6 +140,11 @@ async function collectFiles(projectRoot: string, extensions: string[], options?:
   }
 
   const collected: string[] = [];
+  const defaultIgnores = loadBetterUiConfig(projectRoot);
+  const ignoreDirs = defaultIgnores
+    .filter(pattern => pattern.endsWith("/**"))
+    .map(pattern => pattern.slice(0, -3))
+    .filter(pattern => !pattern.includes("*"));
 
   const walk = async (dir: string) => {
     const entries = await fs.promises.readdir(dir, { withFileTypes: true });
@@ -95,7 +155,7 @@ async function collectFiles(projectRoot: string, extensions: string[], options?:
 
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (["node_modules", "dist", ".git"].includes(entry.name)) {
+        if (ignoreDirs.includes(entry.name)) {
           continue;
         }
         await walk(fullPath);
@@ -612,23 +672,6 @@ export async function scanProject(projectRoot: string, exts?: string[], options?
   }
 
   return [...reports.values()].filter(report => report.messages.length > 0);
-}
-
-export async function applyEslintFixes(projectRoot: string, exts?: string[], options?: ScanProjectOptions) {
-  const extensions = normalizeExtensions(exts);
-  const eslint = createEslint(projectRoot, true);
-  const files = await collectFiles(resolveProjectPath(projectRoot, ".", "Project root"), extensions, options);
-  const lintableFiles = await collectLintableFiles(eslint, files);
-
-  for (const file of lintableFiles) {
-    const code = await fs.promises.readFile(file, "utf8");
-    try {
-      const results = await eslint.lintText(code, { filePath: file, warnIgnored: false });
-      await ESLint.outputFixes(results as any);
-    } catch (err) {
-      console.warn(`Could not fix ${file}: ${err}`);
-    }
-  }
 }
 
 export async function previewEslintFixes(projectRoot: string, exts?: string[], options?: ScanProjectOptions): Promise<FixPreview[]> {

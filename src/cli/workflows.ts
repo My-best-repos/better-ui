@@ -1,15 +1,20 @@
 import fs from "fs";
 import path from "path";
 import { getExtensions, getProjectLabel, getReportFile, loadConfig } from "../config";
-import { getCurrentBranch, getChangedFiles, isGitRepository } from "../gitUtils";
-import { buildHealthReport, buildMarkdownSummary, buildReviewBody } from "../insights";
+import { getChangedFiles, isGitRepository } from "../gitUtils";
+import { buildHealthReport, buildMarkdownSummary } from "../insights";
 import { resolveProjectPath } from "../projectPaths";
 import { writeHtmlReport } from "../reporters/htmlReporter";
 import { writeJsonReport } from "../reporters/jsonReporter";
 import { writeMarkdownReport } from "../reporters/markdownWriter";
 import { buildScanReport } from "../reporters/reportUtils";
 import { scanImages } from "../scanners/imageScanner";
-import { applyEslintFixes, applyFixHunks, applyFixPreviews, previewEslintFixes, scanProject } from "../scanners/eslintScanner";
+import { scanSeo } from "../scanners/seoScanner";
+import { scanTechDebt } from "../scanners/techDebtScanner";
+import { scanPerformance } from "../scanners/performanceScanner";
+import { scanStackAudit } from "../scanners/stackAuditScanner";
+import { scanMigrationIssues } from "../scanners/migrationScanner";
+import { applyFixPreviews, previewEslintFixes, scanProject } from "../scanners/eslintScanner";
 import { ScanReport } from "../types";
 import { buildExplainSummary, explainMessage } from "../explanations";
 
@@ -42,7 +47,7 @@ function resolveScopedFiles(projectRoot: string, options?: ScopeOptions) {
 export async function runScanWorkflow(projectRoot: string, options?: ScopeOptions & { out?: string; ext?: string[]; format?: "json" | "markdown" | "html"; writeReport?: boolean; command?: string }) {
   const config = loadConfig(projectRoot);
   const exts = getExtensions(config, options?.ext);
-  const reportPath = options?.writeReport === false ? undefined : getReportFile(projectRoot, config, options?.out, options?.format, options?.command);
+  const reportPath = options?.writeReport === false ? undefined : getReportFile(projectRoot, config, options?.out, options?.format, options?.command, true);
   const projectLabel = getProjectLabel(projectRoot, config);
   const scope = resolveScope(options);
   const scopedFiles = resolveScopedFiles(projectRoot, options);
@@ -76,14 +81,21 @@ export async function runFixWorkflow(projectRoot: string, options?: ScopeOptions
   const exts = getExtensions(config);
   const scopedFiles = resolveScopedFiles(projectRoot, options);
 
-  if (!options?.apply) {
-    const files = await scanProject(projectRoot, exts, { files: scopedFiles });
-    return { preview: true, report: buildScanReport(files, { scope: resolveScope(options) }) };
+  const previews = await previewEslintFixes(projectRoot, exts, { files: scopedFiles });
+
+  if (previews.length === 0) {
+    return { previews: [], report: buildScanReport([], { scope: resolveScope(options) }) };
   }
 
-  await applyEslintFixes(projectRoot, exts, { files: scopedFiles });
-  const files = await scanProject(projectRoot, exts, { files: scopedFiles });
-  return { preview: false, report: buildScanReport(files, { scope: resolveScope(options) }) };
+  if (!options?.apply) {
+    return { previews, report: null };
+  }
+
+  const allFilePaths = previews.map(p => p.filePath);
+  await applyFixPreviews(projectRoot, previews, allFilePaths);
+  const files = await scanProject(projectRoot, exts, { files: allFilePaths });
+  const report = buildScanReport(files, { scope: resolveScope(options) });
+  return { previews, report };
 }
 
 export async function runInteractiveFixWorkflow(projectRoot: string, options?: ScopeOptions) {
@@ -94,15 +106,8 @@ export async function runInteractiveFixWorkflow(projectRoot: string, options?: S
   return { previews, scope: resolveScope(options) };
 }
 
-async function applyInteractiveFixSelection(projectRoot: string, previews: Awaited<ReturnType<typeof runInteractiveFixWorkflow>>["previews"], selectedFiles: string[], options?: ScopeOptions) {
-  await applyFixPreviews(projectRoot, previews, selectedFiles);
-  const config = loadConfig(projectRoot);
-  const exts = getExtensions(config);
-  const files = await scanProject(projectRoot, exts, { files: selectedFiles });
-  return buildScanReport(files, { scope: resolveScope(options) });
-}
-
 export async function applyInteractiveHunkSelection(projectRoot: string, previews: Awaited<ReturnType<typeof runInteractiveFixWorkflow>>["previews"], selectedHunks: string[], options?: ScopeOptions) {
+  const { applyFixHunks } = await import("../scanners/eslintScanner");
   await applyFixHunks(projectRoot, previews, selectedHunks);
   const config = loadConfig(projectRoot);
   const exts = getExtensions(config);
@@ -112,7 +117,7 @@ export async function applyInteractiveHunkSelection(projectRoot: string, preview
 }
 
 export async function runHealthWorkflow(projectRoot: string) {
-  const scan = await runScanWorkflow(projectRoot, { command: "health" });
+  const scan = await runScanWorkflow(projectRoot, { command: "health", writeReport: false });
   const images = await scanImages(projectRoot);
   const health = buildHealthReport(scan.report, images);
   return { ...scan, images, health };
@@ -126,7 +131,7 @@ export async function runDoctorWorkflow(projectRoot: string) {
     ? JSON.parse(fs.readFileSync(packageJsonPath, "utf8")) as { scripts?: Record<string, string> }
     : null;
   const scripts = packageJson?.scripts || {};
-  const scriptChecks = ["better-ui:scan", "better-ui:fix", "better-ui:tui", "better-ui:health", "better-ui:doctor", "better-ui:a11y", "better-ui:pr-summary"];
+  const scriptChecks = ["better-ui:scan", "better-ui:fix", "better-ui:tui", "better-ui:health", "better-ui:doctor", "better-ui:a11y", "better-ui:init"];
   const missingScripts = scriptChecks.filter(script => !scripts[script]);
   const missingConfig = [
     !config.projectName ? "projectName" : null,
@@ -145,31 +150,6 @@ export async function runDoctorWorkflow(projectRoot: string) {
       scriptChecks: scriptChecks.length
     }
   };
-}
-
-export async function runReviewWorkflow(projectRoot: string, options?: ScopeOptions & { out?: string; format?: "json" | "markdown" | "html"; writeReport?: boolean }) {
-  const scope = resolveScope(options);
-  const scan = await runScanWorkflow(projectRoot, { ...options, command: "review" });
-  const branch = getCurrentBranch(projectRoot) || undefined;
-  const body = buildReviewBody(scan.report, branch);
-
-  if (options?.out) {
-    const reportPath = options.out;
-    if (options.format === "html") {
-      await writeHtmlReport(projectRoot, reportPath, scan.report as any);
-    } else if (options.format !== "markdown") {
-      await writeJsonReport(projectRoot, reportPath, scan.report as any);
-    } else {
-      await writeMarkdownReport(projectRoot, reportPath, body, { keepTxt: true });
-    }
-  }
-
-  return { ...scan, scope, body };
-}
-
-export async function runPrSummaryWorkflow(projectRoot: string, options?: ScopeOptions & { out?: string; format?: "json" | "markdown" | "html"; writeReport?: boolean }) {
-  const review = await runReviewWorkflow(projectRoot, { changed: options?.changed ?? !options?.staged, staged: options?.staged, out: options?.out, format: options?.format, writeReport: options?.writeReport });
-  return review;
 }
 
 export async function runAccessibilityWorkflow(projectRoot: string, options?: ScopeOptions) {
@@ -200,7 +180,6 @@ export async function runExplainWorkflow(projectRoot: string, target?: string): 
       if (fs.existsSync(resolvedTarget) && /\.(json|txt)$/i.test(path.extname(resolvedTarget))) {
         const report = readReportFile(resolvedTarget);
       const summary = buildExplainSummary(report);
-      // Build expanded per-rule explanations
       const explained = new Map<string, string>();
       for (const file of report.files) {
         for (const msg of file.messages) {
@@ -267,4 +246,73 @@ export async function runExplainWorkflow(projectRoot: string, target?: string): 
   const details = [...explained.values()].join("\n");
   const body = summary + "\n\n" + details;
   return { summary, report: scan.report, target: defaultReportPath, body };
+}
+
+export async function runSeoWorkflow(projectRoot: string) {
+  return scanSeo(projectRoot);
+}
+
+export async function runTechDebtWorkflow(projectRoot: string) {
+  return scanTechDebt(projectRoot);
+}
+
+export async function runPerformanceWorkflow(projectRoot: string) {
+  return scanPerformance(projectRoot);
+}
+
+export async function runStackAuditWorkflow(projectRoot: string) {
+  return scanStackAudit(projectRoot);
+}
+
+export async function runMigrationWorkflow(projectRoot: string) {
+  return scanMigrationIssues(projectRoot);
+}
+
+export interface FeScoreResult {
+  totalScore: number;
+  scores: { name: string; score: number; weight: number }[];
+  recommendations: string[];
+  seo: Awaited<ReturnType<typeof scanSeo>>;
+  techDebt: Awaited<ReturnType<typeof scanTechDebt>>;
+  performance: Awaited<ReturnType<typeof scanPerformance>>;
+  stack: Awaited<ReturnType<typeof scanStackAudit>>;
+  migration: Awaited<ReturnType<typeof scanMigrationIssues>>;
+}
+
+export async function runFeScoreWorkflow(projectRoot: string): Promise<FeScoreResult> {
+  const [seo, debt, perf, stack, migration] = await Promise.all([
+    scanSeo(projectRoot),
+    scanTechDebt(projectRoot),
+    scanPerformance(projectRoot),
+    scanStackAudit(projectRoot),
+    scanMigrationIssues(projectRoot),
+  ]);
+
+  const scores = [
+    { name: "SEO", score: seo.score, weight: 0.2 },
+    { name: "Tech Debt", score: debt.score, weight: 0.2 },
+    { name: "Performance", score: perf.score, weight: 0.2 },
+    { name: "Stack & Tooling", score: stack.score, weight: 0.15 },
+    { name: "Migration Readiness", score: migration.score, weight: 0.15 },
+  ];
+
+  const totalScore = Math.round(scores.reduce((sum, s) => sum + s.score * s.weight, 0));
+  const allRecs = [
+    ...seo.recommendations.slice(0, 3),
+    ...debt.recommendations.slice(0, 3),
+    ...perf.recommendations.slice(0, 3),
+    ...stack.recommendations.slice(0, 2),
+    ...migration.recommendations.slice(0, 2),
+  ];
+
+  return {
+    totalScore,
+    scores,
+    recommendations: allRecs.slice(0, 10),
+    seo,
+    techDebt: debt,
+    performance: perf,
+    stack,
+    migration,
+  };
 }

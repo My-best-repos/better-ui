@@ -7,13 +7,17 @@ export const SLASH_ALIASES: Record<string, string[]> = {
   "/doctor": ["doctor"],
   "/deps": ["deps"],
   "/a11y": ["check-accessibility"],
-  "/review-changed": ["review", "--changed"],
-  "/review-staged": ["review", "--staged"],
-  "/fix-preview": ["fix"],
+
   "/fix-apply": ["fix", "--apply"],
   "/fix-interactive": ["fix", "--interactive"],
   "/advanced": ["advanced"],
-  "/exit": ["exit"]
+  "/exit": ["exit"],
+  "/seo": ["seo"],
+  "/tech-debt": ["tech-debt"],
+  "/performance": ["performance"],
+  "/stack-audit": ["stack-audit"],
+  "/migration": ["migration"],
+  "/fe-score": ["fe-score"],
 };
 
 function tokenize(input: string) {

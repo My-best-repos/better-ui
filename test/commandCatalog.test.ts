@@ -28,7 +28,7 @@ describe("COMMANDS", () => {
 
   it("covers all core commands", () => {
     const slashes = COMMANDS.map(c => c.slash);
-    const required = ["/scan", "/fix", "/health", "/deps", "/doctor", "/hotspots", "/advanced", "/review", "/pr-summary", "/explain", "/images", "/init", "/menu", "/commands", "/exit", "/ui-typography", "/ui-spacing"];
+    const required = ["/scan", "/fix", "/health", "/deps", "/doctor", "/hotspots", "/advanced", "/explain", "/images", "/init", "/menu", "/commands", "/exit", "/ui-typography", "/ui-spacing"];
     for (const r of required) {
       expect(slashes).toContain(r);
     }
@@ -36,7 +36,7 @@ describe("COMMANDS", () => {
 
   it("covers alias commands", () => {
     const slashes = COMMANDS.map(c => c.slash);
-    const aliases = ["/changed", "/staged", "/fix-preview", "/fix-apply", "/fix-interactive", "/a11y", "/review-changed", "/review-staged"];
+    const aliases = ["/changed", "/staged", "/fix-apply", "/fix-interactive", "/a11y"];
     for (const a of aliases) {
       expect(slashes).toContain(a);
     }
@@ -45,13 +45,10 @@ describe("COMMANDS", () => {
   it("fix aliases point to the correct intention", () => {
     const fixApply = COMMANDS.find(c => c.slash === "/fix-apply");
     const fixInteractive = COMMANDS.find(c => c.slash === "/fix-interactive");
-    const fixPreview = COMMANDS.find(c => c.slash === "/fix-preview");
     expect(fixApply).toBeDefined();
     expect(fixInteractive).toBeDefined();
-    expect(fixPreview).toBeDefined();
     expect(fixApply!.description.toLowerCase()).toContain("apply");
     expect(fixInteractive!.description.toLowerCase()).toContain("hunk");
-    expect(fixPreview!.description.toLowerCase()).toContain("preview");
   });
 
   it("scan-related aliases exist", () => {
