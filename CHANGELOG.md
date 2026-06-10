@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.0](https://github.com/My-best-repos/better-ui/compare/v1.3.0...v2.0.0) (2026-06-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* Removed four features to simplify the tool:
+
+### Features
+
+* remove /init, /doctor, /explain, and HTML format ([38014f0](https://github.com/My-best-repos/better-ui/commit/38014f03495e7e2654bb61338420667782f54611))
+* remove /init, /doctor, /explain, and HTML format ([b9cf50a](https://github.com/My-best-repos/better-ui/commit/b9cf50af98e923d3a95b5821d157e3a6dfe8dded))
+
 ## [1.3.0](https://github.com/My-best-repos/better-ui/compare/v1.2.1...v1.3.0) (2026-06-10)
 
 
