@@ -1,6 +1,6 @@
 {
   "name": "better-ui-cli",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": false,
   "description": "Open source terminal command center for frontend scanning, review, and safe fixes",
   "packageManager": "pnpm@11.4.0",

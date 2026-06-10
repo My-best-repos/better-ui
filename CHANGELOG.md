@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/My-best-repos/better-ui/compare/v2.0.0...v2.0.1) (2026-06-10)
+
+
+### Bug Fixes
+
+* sync all docs after removing /init, /doctor, /explain, and HTML format ([72bbad6](https://github.com/My-best-repos/better-ui/commit/72bbad6e82bb70cc24cece54dee1a95a964b4dd5))
+
 ## [2.0.0](https://github.com/My-best-repos/better-ui/compare/v1.3.0...v2.0.0) (2026-06-10)
 
 
