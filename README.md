@@ -1,4 +1,4 @@
-# better-ui 1.0
+# better-ui 2.0
 
 ![better-ui header](assets/better-ui.png)
 

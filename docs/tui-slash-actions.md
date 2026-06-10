@@ -20,12 +20,16 @@ For discoverability, `Ctrl+Shift+S` and `/commands` both open the command palett
 - `/hotspots`
 - `/a11y`
 - `/images`
+- `/deps`
 - `/seo`
 - `/tech-debt`
 - `/performance`
 - `/stack-audit`
 - `/migration`
 - `/fe-score`
+- `/advanced`
+- `/ui-colors`
+- `/ui-standards`
 - `/ui-typography`
 - `/ui-spacing`
 - `/commands`
