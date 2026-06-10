@@ -37,7 +37,7 @@ export function getProjectLabel(projectRoot: string, config: BetterUiConfig) {
   return config.projectName?.trim() || path.basename(projectRoot) || "better-ui";
 }
 
-export function getReportFile(projectRoot: string, config: BetterUiConfig, explicitOut?: string, format?: "json" | "markdown" | "html", command?: string, createDir = false) {
+export function getReportFile(projectRoot: string, config: BetterUiConfig, explicitOut?: string, format?: "json" | "markdown", command?: string, createDir = false) {
   if (explicitOut) {
     return resolveProjectPath(projectRoot, explicitOut, "Report output");
   }
@@ -51,7 +51,7 @@ export function getReportFile(projectRoot: string, config: BetterUiConfig, expli
     const mi = String(now.getMinutes()).padStart(2, "0");
     const s = String(now.getSeconds()).padStart(2, "0");
     const ts = `${y}-${mo}-${d}T${h}${mi}${s}`;
-    const ext = format === "html" ? "html" : format === "markdown" ? "md" : "json";
+    const ext = format === "markdown" ? "md" : "json";
     const relPath = path.join(".reports", command, `${command}-${ts}.${ext}`);
     const fullPath = resolveProjectPath(projectRoot, relPath, "Report output");
     if (createDir) {
@@ -60,10 +60,9 @@ export function getReportFile(projectRoot: string, config: BetterUiConfig, expli
     return fullPath;
   }
 
-  const fallback = format === "html" ? "report.html" : format === "markdown" ? "report.md" : "report.txt";
+  const fallback = format === "markdown" ? "report.md" : "report.txt";
   const configuredDefault = config.defaults?.reportFile;
-  const configuredPath = (configuredDefault && format === "html" && /\.(json|txt)$/i.test(configuredDefault) ? configuredDefault.replace(/\.(json|txt)$/i, ".html") : undefined)
-    || (configuredDefault && format === "markdown" && /\.(json|txt)$/i.test(configuredDefault) ? configuredDefault.replace(/\.(json|txt)$/i, ".md") : undefined)
+  const configuredPath = (configuredDefault && format === "markdown" && /\.(json|txt)$/i.test(configuredDefault) ? configuredDefault.replace(/\.(json|txt)$/i, ".md") : undefined)
     || configuredDefault
     || fallback;
   return resolveProjectPath(projectRoot, configuredPath, "Report output");

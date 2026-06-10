@@ -15,7 +15,7 @@ Typical fields:
     "extensions": [".js", ".jsx", ".ts", ".tsx"]
   },
   "scripts": {
-    "scan": "better-ui-cli /scan --format html --out better-ui-report.html",
+    "scan": "better-ui-cli /scan --format json --out better-ui-report.json",
     "fix": "better-ui-cli /fix --interactive"
   }
 }
@@ -23,7 +23,7 @@ Typical fields:
 
 Key behaviors:
 
-- `better-ui-cli /init` will create `better-ui.config.json` and may inject informational `better-ui:*` scripts into the target project's `package.json`.
+- Users can manually create `better-ui.config.json` in the project root to set preferences. The CLI reads it for defaults such as `projectName`, `preset`, `defaults.reportFile`, and `defaults.extensions`.
 - Commands read `better-ui.config.json` for defaults such as `projectName`, `preset`, `defaults.reportFile`, and `defaults.extensions`.
 - Scripts written to `package.json` are informational only; the CLI does not execute or modify those script strings dynamically.
 - When no `--out` or `defaults.reportFile` is set, reports use a descriptive filename (`<command>-<MMDDTHHMMSS>.<ext>`).
@@ -32,12 +32,12 @@ Framework detection:
 
 - `detectFramework()` runs on every scan and reads `package.json` dependencies/devDependencies to identify the project stack.
 - Detected frameworks: `Next.js`, `Nuxt`, `Remix`, `React`, `Vue`, `Svelte`, `Vite`, `Tailwind`, `TypeScript` — falls back to `vanilla` when nothing matches.
-- The detected stack is shown in the `/doctor` command output and in the TUI dashboard.
+- The detected stack is shown in the TUI dashboard.
 
-Init presets:
+Presets:
 
-- `/init --preset <name>` bootstraps a config tailored to your project type. Available presets: `react`, `next`, `vite`, `landing-page`, `typescript-library`.
-- Each preset sets the `reportFile`, `extensions`, and adds `better-ui:*` scripts to `package.json`.
+- Presets can be set manually in `better-ui.config.json` under the `"preset"` field. Available values: `react`, `next`, `vite`, `landing-page`, `typescript-library`.
+- Each preset determines the default `reportFile`, `extensions`, and recommended `better-ui:*` scripts.
 - See `docs/presets-reference.md` for the full preset reference.
 
 Report output paths:

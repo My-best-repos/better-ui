@@ -28,7 +28,7 @@ describe("COMMANDS", () => {
 
   it("covers all core commands", () => {
     const slashes = COMMANDS.map(c => c.slash);
-    const required = ["/scan", "/fix", "/health", "/deps", "/doctor", "/hotspots", "/advanced", "/explain", "/images", "/init", "/menu", "/commands", "/exit", "/ui-typography", "/ui-spacing"];
+    const required = ["/scan", "/fix", "/health", "/deps", "/hotspots", "/advanced", "/images", "/menu", "/commands", "/exit", "/ui-typography", "/ui-spacing"];
     for (const r of required) {
       expect(slashes).toContain(r);
     }

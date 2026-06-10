@@ -1,6 +1,6 @@
-# Init Presets Reference
+# Presets Reference
 
-The `/init --preset <name>` command bootstraps a `better-ui.config.json` with pre-configured defaults tailored to your project type.
+Presets can be set manually in `better-ui.config.json` under the `"preset"` field. They provide pre-configured defaults tailored to your project type.
 
 ## Available presets
 
@@ -18,18 +18,22 @@ Each preset sets three values in `better-ui.config.json`:
 
 1. **`reportFile`** — The default output path for scan reports (default: `better-ui-report.txt`).
 2. **`extensions`** — Which file extensions the scanner processes. Language-specific presets restrict to relevant extensions.
-3. **Injected scripts** — `/init` also adds informational `better-ui:*` scripts to `package.json` (scan, fix, health, doctor, a11y, init, tui).
+3. **Recommended scripts** — The recommended `better-ui:*` scripts to add to `package.json` (scan, fix, health, a11y, tui).
 
 ## Example
 
-```bash
-npx ts-node src/cli.ts /init --preset next
+```json
+{
+  "preset": "next",
+  "projectName": "my-project",
+  "defaults": {
+    "reportFile": "better-ui-report.txt",
+    "extensions": [".js", ".jsx", ".ts", ".tsx"]
+  }
+}
 ```
-
-This creates a `better-ui.config.json` with Next.js conventions and adds `better-ui:scan`, `better-ui:fix`, and related scripts to `package.json`.
 
 ## Notes
 
-- Presets are purely advisory — the config they produce can be edited manually afterward.
-- The CLI does not execute or modify the injected `better-ui:*` script strings dynamically.
-- Without a preset, `/init` creates a config with no preset and generic defaults.
+- Presets are purely advisory — the config can be edited manually afterward.
+- The CLI does not execute or modify script strings in `package.json` dynamically.

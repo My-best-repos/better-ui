@@ -10,7 +10,7 @@ export const COMMANDS: CommandDefinition[] = [
     name: "scan",
     slash: "/scan",
     description: "Scan the whole project and save a structured report.",
-    example: "better-ui-cli /scan --format html --out report.html"
+    example: "better-ui-cli /scan --format json --out report.json"
   },
   {
     name: "scan --changed (alias)",
@@ -61,12 +61,6 @@ export const COMMANDS: CommandDefinition[] = [
     example: "better-ui-cli /advanced"
   },
   {
-    name: "doctor",
-    slash: "/doctor",
-    description: "Run the broad project doctor view including config and script checks.",
-    example: "better-ui-cli /doctor"
-  },
-  {
     name: "hotspots",
     slash: "/hotspots",
     description: "Show the files with the highest issue density and risk. Flags: --density (sort by issues/line), --min-score <n> (filter).",
@@ -79,22 +73,10 @@ export const COMMANDS: CommandDefinition[] = [
     example: "better-ui-cli /a11y --changed"
   },
   {
-    name: "explain",
-    slash: "/explain",
-    description: "Explain why findings matter and how to fix them.",
-    example: "better-ui-cli /explain src/components/App.tsx"
-  },
-  {
     name: "images",
     slash: "/images",
     description: "Inspect image weight and optionally create WebP versions.",
     example: "better-ui-cli /images --generate"
-  },
-  {
-    name: "init",
-    slash: "/init",
-    description: "Create `better-ui.config.json` with optional project presets and helper scripts.",
-    example: "better-ui-cli /init --preset next"
   },
   {
     name: "tui",

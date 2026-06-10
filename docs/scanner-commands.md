@@ -43,9 +43,8 @@ Scans JS/TS/JSX/TSX/CSS/SCSS files for 11 categories of code smells:
 Each finding is reported with **file:line**. Example:
 ```
 console.log() (47):
-  src/cli/initCommand.ts:103  console.log("Added scripts...")
   src/cli.ts:840              if (shortSummary) console.log(...)
-  ... +45 more
+  ... +46 more
 ```
 
 Source: `src/scanners/techDebtScanner.ts`

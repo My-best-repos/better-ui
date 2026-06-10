@@ -71,7 +71,7 @@ Where to modify code depending on the change type
 - Technology Stack: `docs/technology-stack.md` documents the main runtime, CLI/TUI, linting, and testing technologies used by the project.
 - UI Commands: `docs/ui-commands.md` documents the filesystem-only UI scanners: `/ui-colors`, `/ui-standards`, `/ui-typography`, and `/ui-spacing`.
 - Hotspots: `docs/hotspots-command.md` documents the `/hotspots` command and its flags (`--density`, `--min-score`, `--top`).
-- Init Presets: `docs/presets-reference.md` documents the available `/init --preset` options and their configuration.
+- Presets: `docs/presets-reference.md` documents the available presets and their configuration.
 - Scanner Commands: `docs/scanner-commands.md` documents the six standalone scanners: `/seo`, `/tech-debt`, `/performance`, `/stack-audit`, `/migration`, and `/fe-score`.
 
 Quick verification commands

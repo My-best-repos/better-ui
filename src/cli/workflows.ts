@@ -4,7 +4,6 @@ import { getExtensions, getProjectLabel, getReportFile, loadConfig } from "../co
 import { getChangedFiles, isGitRepository } from "../gitUtils";
 import { buildHealthReport, buildMarkdownSummary } from "../insights";
 import { resolveProjectPath } from "../projectPaths";
-import { writeHtmlReport } from "../reporters/htmlReporter";
 import { writeJsonReport } from "../reporters/jsonReporter";
 import { writeMarkdownReport } from "../reporters/markdownWriter";
 import { buildScanReport } from "../reporters/reportUtils";
@@ -16,7 +15,6 @@ import { scanStackAudit } from "../scanners/stackAuditScanner";
 import { scanMigrationIssues } from "../scanners/migrationScanner";
 import { applyFixPreviews, previewEslintFixes, scanProject } from "../scanners/eslintScanner";
 import { ScanReport } from "../types";
-import { buildExplainSummary, explainMessage } from "../explanations";
 
 interface ScopeOptions {
   changed?: boolean;
@@ -44,7 +42,7 @@ function resolveScopedFiles(projectRoot: string, options?: ScopeOptions) {
   return undefined;
 }
 
-export async function runScanWorkflow(projectRoot: string, options?: ScopeOptions & { out?: string; ext?: string[]; format?: "json" | "markdown" | "html"; writeReport?: boolean; command?: string }) {
+export async function runScanWorkflow(projectRoot: string, options?: ScopeOptions & { out?: string; ext?: string[]; format?: "json" | "markdown"; writeReport?: boolean; command?: string }) {
   const config = loadConfig(projectRoot);
   const exts = getExtensions(config, options?.ext);
   const reportPath = options?.writeReport === false ? undefined : getReportFile(projectRoot, config, options?.out, options?.format, options?.command, true);
@@ -63,10 +61,7 @@ export async function runScanWorkflow(projectRoot: string, options?: ScopeOption
 
   let actualReportPath = reportPath;
   if (options?.writeReport !== false && reportPath) {
-    if (options?.format === "html") {
-      await writeHtmlReport(projectRoot, reportPath, report);
-      actualReportPath = reportPath;
-    } else if (options?.format !== "markdown") {
+    if (options?.format !== "markdown") {
       actualReportPath = writeJsonReport(projectRoot, reportPath, report);
     } else {
       actualReportPath = await writeMarkdownReport(projectRoot, reportPath, buildMarkdownSummary(report, `${projectLabel} Report`));
@@ -123,35 +118,6 @@ export async function runHealthWorkflow(projectRoot: string) {
   return { ...scan, images, health };
 }
 
-export async function runDoctorWorkflow(projectRoot: string) {
-  const config = loadConfig(projectRoot);
-  const healthResult = await runHealthWorkflow(projectRoot);
-  const packageJsonPath = resolveProjectPath(projectRoot, "package.json", "package.json");
-  const packageJson = fs.existsSync(packageJsonPath)
-    ? JSON.parse(fs.readFileSync(packageJsonPath, "utf8")) as { scripts?: Record<string, string> }
-    : null;
-  const scripts = packageJson?.scripts || {};
-  const scriptChecks = ["better-ui:scan", "better-ui:fix", "better-ui:tui", "better-ui:health", "better-ui:doctor", "better-ui:a11y", "better-ui:init"];
-  const missingScripts = scriptChecks.filter(script => !scripts[script]);
-  const missingConfig = [
-    !config.projectName ? "projectName" : null,
-    !config.preset ? "preset" : null,
-    !config.defaults?.reportFile ? "defaults.reportFile" : null,
-    !config.defaults?.extensions?.length ? "defaults.extensions" : null
-  ].filter(Boolean) as string[];
-
-  return {
-    ...healthResult,
-    doctor: {
-      configCompleteness: missingConfig.length === 0 ? "good" : missingConfig.length === 1 ? "partial" : "weak",
-      missingConfig,
-      missingScripts,
-      scriptsPresent: scriptChecks.length - missingScripts.length,
-      scriptChecks: scriptChecks.length
-    }
-  };
-}
-
 export async function runAccessibilityWorkflow(projectRoot: string, options?: ScopeOptions) {
   const scan = await runScanWorkflow(projectRoot, { ...options, command: "check-accessibility", writeReport: false });
   const files = scan.report.files
@@ -168,84 +134,6 @@ export async function runAccessibilityWorkflow(projectRoot: string, options?: Sc
     }));
 
   return buildScanReport(files, { scope: resolveScope(options) });
-}
-
-function readReportFile(filePath: string) {
-  return JSON.parse(fs.readFileSync(filePath, "utf8")) as ScanReport;
-}
-
-export async function runExplainWorkflow(projectRoot: string, target?: string): Promise<import("../types").ExplainResult> {
-  if (target) {
-    const resolvedTarget = resolveProjectPath(projectRoot, target, "Explain target");
-      if (fs.existsSync(resolvedTarget) && /\.(json|txt)$/i.test(path.extname(resolvedTarget))) {
-        const report = readReportFile(resolvedTarget);
-      const summary = buildExplainSummary(report);
-      const explained = new Map<string, string>();
-      for (const file of report.files) {
-        for (const msg of file.messages) {
-          const key = msg.ruleId || `general:${msg.message.slice(0, 40)}`;
-          if (explained.has(key)) continue;
-          const ex = explainMessage(msg);
-          const block = `${ex.title}\nWhy: ${ex.why}\nFix: ${ex.fix}\n`;
-          explained.set(key, block);
-        }
-      }
-      const details = [...explained.values()].join("\n");
-      const body = summary + "\n\n" + details;
-      return { summary, report, target: resolvedTarget, body };
-      }
-
-    const scan = await runScanWorkflow(projectRoot, { command: "explain", writeReport: false });
-    const summary = buildExplainSummary(scan.report, path.relative(projectRoot, resolvedTarget));
-    const explained = new Map<string, string>();
-    for (const file of scan.report.files) {
-      for (const msg of file.messages) {
-        const key = msg.ruleId || `general:${msg.message.slice(0, 40)}`;
-        if (explained.has(key)) continue;
-        const ex = explainMessage(msg);
-        const block = `${ex.title}\nWhy: ${ex.why}\nFix: ${ex.fix}\n`;
-        explained.set(key, block);
-      }
-    }
-    const details = [...explained.values()].join("\n");
-    const body = summary + "\n\n" + details;
-    return { summary, report: scan.report, target: resolvedTarget, body };
-  }
-
-  const defaultReportPath = getReportFile(projectRoot, loadConfig(projectRoot));
-  if (fs.existsSync(defaultReportPath)) {
-    const report = readReportFile(defaultReportPath);
-    const summary = buildExplainSummary(report);
-    const explained = new Map<string, string>();
-    for (const file of report.files) {
-      for (const msg of file.messages) {
-        const key = msg.ruleId || `general:${msg.message.slice(0, 40)}`;
-        if (explained.has(key)) continue;
-        const ex = explainMessage(msg);
-        const block = `${ex.title}\nWhy: ${ex.why}\nFix: ${ex.fix}\n`;
-        explained.set(key, block);
-      }
-    }
-    const details = [...explained.values()].join("\n");
-    const body = summary + "\n\n" + details;
-    return { summary, report, target: defaultReportPath, body };
-  }
-
-  const scan = await runScanWorkflow(projectRoot, { command: "explain", writeReport: false });
-  const summary = buildExplainSummary(scan.report);
-  const explained = new Map<string, string>();
-  for (const file of scan.report.files) {
-    for (const msg of file.messages) {
-      const key = msg.ruleId || `general:${msg.message.slice(0, 40)}`;
-      if (explained.has(key)) continue;
-      const ex = explainMessage(msg);
-      const block = `${ex.title}\nWhy: ${ex.why}\nFix: ${ex.fix}\n`;
-      explained.set(key, block);
-    }
-  }
-  const details = [...explained.values()].join("\n");
-  const body = summary + "\n\n" + details;
-  return { summary, report: scan.report, target: defaultReportPath, body };
 }
 
 export async function runSeoWorkflow(projectRoot: string) {

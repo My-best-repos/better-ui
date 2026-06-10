@@ -4,7 +4,6 @@ export const SLASH_ALIASES: Record<string, string[]> = {
   "/commands": ["commands"],
   "/changed": ["scan", "--changed"],
   "/staged": ["scan", "--staged"],
-  "/doctor": ["doctor"],
   "/deps": ["deps"],
   "/a11y": ["check-accessibility"],
 

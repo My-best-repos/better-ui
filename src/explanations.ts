@@ -1,4 +1,4 @@
-import { ScanReport, LintMessage, IssueExplanation } from "./types";
+import { LintMessage, IssueExplanation } from "./types";
 
 const RULE_KNOWLEDGE: Record<string, { why: string; fix: string }> = {
   "better-ui/clickable-div": {
@@ -32,12 +32,4 @@ export function explainMessage(message: LintMessage): IssueExplanation {
   return { title, why, fix, risk: message.impact || "medium", autofix: Boolean(message.fixable) };
 }
 
-export function buildExplainSummary(report: ScanReport, targetPath?: string) {
-  const total = report.summary.totalIssues;
-  const files = report.summary.filesWithIssues;
-  const header = `Report summary: ${total} issue(s) across ${files} file(s)`;
-  const lines = report.files.flatMap(file => file.messages.map(m => `- ${file.filePath}:${m.line || "?"}  ${m.ruleId || m.message}`));
-  let body = [header, "", ...lines.slice(0, 30)].join("\n");
-  if (lines.length > 30) body += `\n… and ${lines.length - 30} more`;
-  return body + (targetPath ? `\n\nTarget: ${targetPath}` : "");
-}
+
