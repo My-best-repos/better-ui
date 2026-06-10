@@ -13,7 +13,7 @@ Tone and language:
 
 Copy guidelines (examples):
 
-- Success: "Saved report to report.html" (short, path included).
+- Success: "Saved report to .reports/scan/scan-20260603T125355.json" (short, path included).
 - Action prompt: "Apply ESLint autofixes to 3 files?" (include counts and preview location).
 - Error: "Failed to parse tsconfig.json: <reason>" (include actionable hint).
 - TUI Navigation: Use "Press 'a' to return to the dashboard, or '/' to type a new command directly:" for command pauses.

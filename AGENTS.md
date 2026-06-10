@@ -18,9 +18,9 @@ What this repository contains (operational summary)
 
 - Purpose: a terminal-first tool to scan frontend code, compute a health score, generate reports, and help apply fixes with interactive workflows.
 - CLI entry: `src/cli.ts` — maps commands to workflows and reporters.
-- Workflows: `src/cli/workflows.ts` — orchestrates scan, fix, doctor, review, explain, etc.
+- Workflows: `src/cli/workflows.ts` — orchestrates scan, fix, health, and scanner workflows.
 - Scanners: `src/scanners/` — `eslintScanner.ts` (ESLint + TypeScript diagnostics + heuristics), `imageScanner.ts` (discover and generate WebP), and `dependencyScanner.ts` (unused/heavy dependency analysis).
-- Reporters: `src/reporters/` — JSON, HTML, and terminal reporters.
+- Reporters: `src/reporters/` — JSON, Markdown, and terminal reporters.
 - Interactive UI: `src/tui/app.ts` — Enquirer-based TUI for dashboards and review flows.
 - Path safety: `src/projectPaths.ts` — helpers that ensure all writes stay inside the project root.
 

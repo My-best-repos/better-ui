@@ -18,8 +18,8 @@ Architecture overview (where to look):
 
 - CLI entry: `src/cli.ts` - maps commands to workflows and reporters.
 - Scanners: `src/scanners/` - ESLint + TypeScript diagnostics (`eslintScanner.ts`), image tooling (`imageScanner.ts`), and dependency analysis (`dependencyScanner.ts`).
-- Workflows: `src/cli/workflows.ts` - orchestrates scan, fix, explain, doctor flows.
-- Reporters: `src/reporters/` - json, html, and terminal reporters.
+- Workflows: `src/cli/workflows.ts` - orchestrates scan, fix, health, and scanner workflows.
+- Reporters: `src/reporters/` - json, markdown, and terminal reporters.
 - TUI: `src/tui/app.ts` - interactive command center.
 
 Quick directory layout:

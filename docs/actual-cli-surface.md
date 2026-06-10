@@ -12,14 +12,14 @@ The CLI is slash-only at the top level. Use `/scan`, `/hotspots`, `/menu`, and s
 
 Runs ESLint, TypeScript diagnostics, and frontend heuristics across the project. Produces a report with scoring, categories, and hotspots.
 
-**Output:** report file (json/markdown/html). By default saves to `.reports/scan/scan-<ISO>.json`.
+**Output:** report file (json/markdown). By default saves to `.reports/scan/scan-<ISO>.json`.
 
 **Flags:**
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--out <path>` | string | — | Explicit output path (overrides default naming) |
-| `--format <format>` | json \| markdown \| html | json | Report format |
+| `--format <format>` | json \| markdown | json | Report format |
 | `--ext <exts>` | string | — | Comma-separated file extensions (e.g. `.js,.ts`) |
 | `--changed` | boolean | off | Scan only modified and untracked git files |
 | `--staged` | boolean | off | Scan only staged git files |
@@ -55,14 +55,6 @@ No additional flags. Sources data from `src/insights.ts`.
 
 ---
 
-### `doctor` — Project diagnostic
-
-Checks config completeness, missing `package.json` scripts, ESLint configuration, TypeScript configuration, and detects the active framework.
-
-No additional flags.
-
----
-
 ### `deps` — Dependency scanner
 
 Scans `package.json` dependencies against actual `import`/`require` usage in `src/`. Reports:
@@ -93,16 +85,6 @@ Ranks files by combined error/warning severity and issue density. See `docs/hots
 Filters the full scan to accessibility-related findings only (rules tagged under the `accessibility` category).
 
 **Flags:** `--changed`, `--staged`.
-
----
-
----
-
-### `explain [target]` — Issue explanations
-
-Converts raw lint findings into human-friendly why/fix/risk guidance. Optionally accepts a file path to scope the explanation to a single file.
-
-**Output:** per-rule explanation with why the issue matters, how to fix it, and the estimated risk level. Sources data from `src/explanations.ts`.
 
 ---
 
@@ -167,20 +149,6 @@ Discovers `.png`, `.jpg`, `.jpeg` assets and reports their size. With `--generat
 
 ---
 
-### `init` — Project bootstrap
-
-Creates `better-ui.config.json` with optional project presets and injects informational `better-ui:*` scripts into `package.json`.
-
-**Flags:**
-
-| Flag | Type | Description |
-|------|------|-------------|
-| `--preset <name>` | string | Preset to apply: `react`, `next`, `vite`, `landing-page`, `typescript-library` |
-
-See `docs/presets-reference.md` for the full preset reference.
-
----
-
 ### `tui` / `/menu` — Interactive command center
 
 Opens the full-screen terminal UI with a grid dashboard and command palette (Ctrl+Shift+S).
@@ -236,10 +204,6 @@ Each error contributes 1 point, each pair of warnings contributes 1 point. The m
 
 ## Report format details
 
-### HTML report template
-
-The HTML reporter generates a minimal template — the entire report is embedded as formatted JSON inside `<pre>` tags. It is not a rich visual dashboard; it is a quick way to view the report in a browser.
-
 ## Report output structure
 
 When no explicit `--out` path is provided, commands save reports to per-command subdirectories under `.reports/`:
@@ -251,7 +215,7 @@ When no explicit `--out` path is provided, commands save reports to per-command 
     └── scan-2026-06-03T125500.md
 ```
 
-The file extension depends on the format: `.json` for json, `.md` for markdown, `.html` for html. The timestamp is ISO-8601 compact format.
+The file extension depends on the format: `.json` for json, `.md` for markdown. The timestamp is ISO-8601 compact format.
 
 ## Slash aliases
 
@@ -261,6 +225,6 @@ The CLI supports slash-style aliases via `src/slashCommands.ts` and rejects non-
 
 ## Notes for automation and AI agents
 
-- The output formats are deterministic JSON/Markdown/HTML; automated consumers should prefer JSON for machine parsing.
+- The output formats are deterministic JSON/Markdown; automated consumers should prefer JSON for machine parsing.
 - When applying fixes automatically, prefer creating a branch or making a reviewable PR. `fix --interactive` is safer because it limits writes to selected hunks.
 - Reports are saved under `.reports/<command>/` by default. Use `--out` or `--no-save` to control output behavior.

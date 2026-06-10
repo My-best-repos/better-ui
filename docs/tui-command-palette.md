@@ -19,7 +19,7 @@ Then test:
 ```text
 Press Ctrl+Shift+S
 Move with the arrow keys
-Press Enter on a command such as /scan or /doctor
+Press Enter on a command such as /scan or /health
 Type /commands and confirm that the same palette opens
 ```
 
