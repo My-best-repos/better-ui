@@ -163,7 +163,6 @@ export async function scanPerformance(projectRoot: string): Promise<PerformanceR
         }
       }
 
-      let cssLineOffset = 0;
       const cssLinks = head.matchAll(/<link[\s>][^>]*rel=["']stylesheet["'][^>]*>/gi);
       for (const cl of cssLinks) {
         stylesheetsInHead++;
@@ -171,7 +170,6 @@ export async function scanPerformance(projectRoot: string): Promise<PerformanceR
         const href = hrefMatch ? hrefMatch[1] : "unknown";
         const cssLineNum = headContent.substring(0, cl.index!).split(/\r?\n/).length;
         blockingCssFiles.push({ file: rel, line: cssLineNum, detail: href });
-        cssLineOffset++;
       }
     }
 

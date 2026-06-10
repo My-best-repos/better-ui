@@ -148,11 +148,4 @@ export function buildMarkdownSummary(report: ScanReport, title = "Scan Report") 
   return lines.join("\n");
 }
 
-export function compareReports(previous: ScanReport, current: ScanReport) {
-  return {
-    scoreDelta: current.summary.score - previous.summary.score,
-    errorDelta: current.summary.errors - previous.summary.errors,
-    warningDelta: current.summary.warnings - previous.summary.warnings,
-    fileDelta: current.summary.filesWithIssues - previous.summary.filesWithIssues
-  };
-}
+

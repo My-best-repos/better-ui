@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { getExtensions, getProjectLabel, getReportFile, loadConfig } from "../config";
-import { getCurrentBranch, getChangedFiles, isGitRepository } from "../gitUtils";
+import { getChangedFiles, isGitRepository } from "../gitUtils";
 import { buildHealthReport, buildMarkdownSummary } from "../insights";
 import { resolveProjectPath } from "../projectPaths";
 import { writeHtmlReport } from "../reporters/htmlReporter";

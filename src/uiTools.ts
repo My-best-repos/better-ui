@@ -66,7 +66,6 @@ function readFileSafe(filePath: string): string | null {
   }
 }
 
-const SEMANTIC_ELEMENTS = ["header", "nav", "main", "article", "section", "aside", "footer", "figure", "figcaption", "time", "mark"];
 const TAILWIND_PATTERN = /className=["'`][^"'`]*(?:text|bg|border|ring|shadow|outline|ring-offset|from|via|to|divide|placeholder|space|translate|rotate|scale|skew|origin|transition|duration|ease|delay|animate|font|tracking|leading|whitespace|break|truncate|underline|line-clamp|prose|container|grid|flex|col|row|gap|p|m|h|w|min|max|inset|top|right|bottom|left|z|order|float|clear|display|overflow|overscroll|visibility|opacity|mix-blend|bg-blend|box|object|isolation|appearance|pointer|cursor|resize|select|snap|scroll|touch|user|fill|stroke)[a-z-]+[ "'`]/;
 
 const HEX_COLOR = /#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/g;
@@ -85,7 +84,6 @@ export async function scanColors(projectRoot: string): Promise<ColorReport> {
   const cssCustomProps = new Set<string>();
   let hasInconsistencies = false;
 
-  const closeVariants = new Map<string, string[]>();
   const addColor = (value: string, file: string) => {
     const key = value.toLowerCase().trim();
     const entry = colorMap.get(key) || { count: 0, files: new Set() };

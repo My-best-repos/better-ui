@@ -37,6 +37,18 @@ const RELATED_COMMANDS: Record<string, RelatedEntry[]> = {
     { command: "/health", description: "Check staged health impact" },
     { command: "/doctor", description: "Run full diagnostic" }
   ],
+  "fix": [
+    { command: "/scan", description: "Run a full project scan" },
+    { command: "/health", description: "Check updated health score" },
+    { command: "/doctor", description: "Run full diagnostic" },
+    { command: "/commands", description: "Browse every slash command" }
+  ],
+  "fix-preview": [
+    { command: "/fix --apply", description: "Write all safe autofixes" },
+    { command: "/fix --interactive", description: "Pick hunks manually" },
+    { command: "/health", description: "Check updated health score" },
+    { command: "/scan", description: "Re-scan after previewing" }
+  ],
   "fix-apply": [
     { command: "/scan", description: "Measure the new score" },
     { command: "/health", description: "Check updated health score" },

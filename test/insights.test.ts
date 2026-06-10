@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildCategoryCounts, buildScanScore, buildHotspots, inferCategory, inferImpact, buildHealthReport, buildMarkdownSummary, compareReports } from "../src/insights";
+import { buildCategoryCounts, buildScanScore, buildHotspots, inferCategory, inferImpact, buildHealthReport, buildMarkdownSummary } from "../src/insights";
 import type { FileReport, ScanReport, LintMessage } from "../src/types";
 
 function makeFile(filePath: string, errors: number, warnings: number, messages: LintMessage[] = []): FileReport {
@@ -218,23 +218,4 @@ describe("buildMarkdownSummary", () => {
   });
 });
 
-describe("compareReports", () => {
-  it("computes positive deltas correctly", () => {
-    const prev: ScanReport = { generatedAt: "", summary: { errors: 5, warnings: 10, totalIssues: 15, filesWithIssues: 3, score: 70, categories: {} as any }, files: [] };
-    const curr: ScanReport = { generatedAt: "", summary: { errors: 3, warnings: 8, totalIssues: 11, filesWithIssues: 2, score: 80, categories: {} as any }, files: [] };
-    const d = compareReports(prev, curr);
-    expect(d.scoreDelta).toBe(10);
-    expect(d.errorDelta).toBe(-2);
-    expect(d.warningDelta).toBe(-2);
-    expect(d.fileDelta).toBe(-1);
-  });
 
-  it("returns zero deltas for identical reports", () => {
-    const r: ScanReport = { generatedAt: "", summary: { errors: 0, warnings: 0, totalIssues: 0, filesWithIssues: 0, score: 100, categories: {} as any }, files: [] };
-    const d = compareReports(r, r);
-    expect(d.scoreDelta).toBe(0);
-    expect(d.errorDelta).toBe(0);
-    expect(d.warningDelta).toBe(0);
-    expect(d.fileDelta).toBe(0);
-  });
-});

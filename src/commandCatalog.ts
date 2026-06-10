@@ -176,6 +176,4 @@ export const COMMANDS: CommandDefinition[] = [
   }
 ];
 
-function getCommandBySlash(slash: string) {
-  return COMMANDS.find(command => command.slash === slash);
-}
+

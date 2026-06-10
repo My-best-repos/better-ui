@@ -39,15 +39,4 @@ export function readFileSafe(filePath: string): string | null {
   }
 }
 
-export function formatFileDetail(d: FileDetail): string {
-  const detail = d.detail ? `  ${d.detail}` : "";
-  return `${d.file}:${d.line}${detail}`;
-}
 
-export function printFilePanel(title: string, items: FileDetail[], max = 10): void {
-  if (items.length === 0) return;
-  const lines = items.slice(0, max).map(d => `  ${d.file}:${d.line}${d.detail ? `  ${d.detail}` : ""}`);
-  console.log(`\n  ${title} (${items.length}):`);
-  lines.forEach(l => console.log(l));
-  if (items.length > max) console.log(`  ... +${items.length - max} más`);
-}

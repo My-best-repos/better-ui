@@ -1,6 +1,7 @@
 import chalk from "chalk";
 import Table from "cli-table3";
 import { COMMANDS } from "./commandCatalog";
+import { formatRelatedCommands } from "./relatedCommands";
 
 type PanelColor = "magenta" | "cyan" | "yellow" | "green" | "blue" | "red";
 
@@ -172,4 +173,20 @@ export function printFooter() {
   console.log(chalk.dim("\n──────────────────────────────────────────"));
   console.log(chalk.dim("better-ui-cli /menu — Open command center"));
   console.log(chalk.dim("better-ui-cli /commands — All commands\n"));
+}
+
+export function printRelatedCommands(key: string) {
+  printPanel("Next Best Moves", formatRelatedCommands(key), "cyan");
+}
+
+export function categoryRecommendations(category: string): string[] {
+  const recs: Record<string, string[]> = {
+    "maintainability": ["Split large files into smaller modules", "Extract repeated logic into shared utilities", "Use consistent file naming conventions"],
+    "accessibility": ["Add aria-* attributes to interactive elements", "Ensure sufficient color contrast", "Add keyboard navigation support", "Use semantic HTML elements"],
+    "performance": ["Optimize and compress images", "Lazy-load heavy components", "Tree-shake unused exports", "Avoid unnecessary re-renders"],
+    "code-quality": ["Remove unused variables and imports", "Use strict equality (===) over loose (==)", "Add JSDoc/TSDoc to public APIs", "Fix console.log statements"],
+    "correctness": ["Fix all errors before deployment", "Add proper error boundaries", "Validate edge cases in conditionals"],
+    "dx": ["Standardize import paths with aliases", "Add pre-commit hooks for linting", "Create consistent component patterns"]
+  };
+  return recs[category] || [];
 }

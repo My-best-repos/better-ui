@@ -25,10 +25,9 @@ import { printSummary } from "./reporters/terminalReporter";
 import { detectFramework } from "./config";
 import { scanImages, generateWebP } from "./scanners/imageScanner";
 import { normalizeSlashArgv } from "./slashCommands";
-import { printBanner, printCommandCatalog, printPanel, formatDelta, formatElapsed, formatTimestamp, printGrid, printRunSummary, printFooter, groupMessages, groupMessagesByRule } from "./terminalUi";
+import { printBanner, printCommandCatalog, printPanel, formatDelta, formatElapsed, formatTimestamp, printGrid, printRunSummary, printFooter, groupMessages, groupMessagesByRule, printRelatedCommands, categoryRecommendations } from "./terminalUi";
 import { runTui } from "./tui/app";
 import { scanDependencies } from "./scanners/dependencyScanner";
-import { formatRelatedCommands } from "./relatedCommands";
 import { scanColors, scanStandards, scanTypography, scanSpacing } from "./uiTools";
 import { renderSeoReport } from "./renderers/seoRenderer";
 import { renderTechDebtReport } from "./renderers/techDebtRenderer";
@@ -44,8 +43,7 @@ import {
   runMigrationWorkflow,
   runFeScoreWorkflow,
 } from "./cli/workflows";
-import { resolveProjectPath } from "./projectPaths";
-import { INIT_NOTE, IMAGES_WEBP_NOTE } from "./commandText";
+import { INIT_NOTE } from "./commandText";
 
 function parseExtensions(value?: string) {
   return value ? value.split(",").map(segment => segment.trim()).filter(Boolean) : undefined;
@@ -55,10 +53,6 @@ function addScopeOptions(command: Command) {
   return command
     .option("--changed", "Limit the command to modified and untracked git files")
     .option("--staged", "Limit the command to staged git files");
-}
-
-function printRelatedCommands(key: string) {
-  printPanel("Next Best Moves", formatRelatedCommands(key), "cyan");
 }
 
 function printCommandIntro(commandText: string) {
@@ -381,7 +375,7 @@ program
       const cfgLines: string[] = [];
       const cfgFields: Record<string, { recommended: string; hint: string }> = {
         "projectName": { recommended: `"${projectName}"`, hint: "Used in report headers and metadata" },
-        "preset": { recommended: `"react", "next", "vite", "vue", "landing-page", "typescript-library"`, hint: "Enables preset-specific rules and defaults" },
+        "preset": { recommended: `"react", "next", "vite", "landing-page", "typescript-library"`, hint: "Enables preset-specific rules and defaults" },
         "defaults.reportFile": { recommended: `"report.txt"`, hint: "Default output path for scan reports" },
         "defaults.extensions": { recommended: `[".js", ".jsx", ".ts", ".tsx"]`, hint: "File extensions the scanner will process" }
       };
@@ -478,18 +472,6 @@ program
       process.exitCode = 2;
     }
   });
-
-function categoryRecommendations(category: string): string[] {
-  const recs: Record<string, string[]> = {
-    "maintainability": ["Split large files into smaller modules", "Extract repeated logic into shared utilities", "Use consistent file naming conventions"],
-    "accessibility": ["Add aria-* attributes to interactive elements", "Ensure sufficient color contrast", "Add keyboard navigation support", "Use semantic HTML elements"],
-    "performance": ["Optimize and compress images", "Lazy-load heavy components", "Tree-shake unused exports", "Avoid unnecessary re-renders"],
-    "code-quality": ["Remove unused variables and imports", "Use strict equality (===) over loose (==)", "Add JSDoc/TSDoc to public APIs", "Fix console.log statements"],
-    "correctness": ["Fix all errors before deployment", "Add proper error boundaries", "Validate edge cases in conditionals"],
-    "dx": ["Standardize import paths with aliases", "Add pre-commit hooks for linting", "Create consistent component patterns"]
-  };
-  return recs[category] || [];
-}
 
 program
   .command("health")
@@ -893,7 +875,7 @@ program
 program
   .command("init")
   .description("Interactive assistant to set up better-ui in your project")
-  .option("--preset <name>", "Preset: react, next, vite, vue, design-system, landing-page, typescript-library")
+  .option("--preset <name>", "Preset: react, next, vite, landing-page, typescript-library")
   .action(async (opts: { preset?: string }) => {
     try {
       const result = await runInit(process.cwd(), opts);

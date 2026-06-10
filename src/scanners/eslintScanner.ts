@@ -19,7 +19,7 @@ const ESLINT_CONFIG_FILES = [
   "eslint.config.cts"
 ];
 
-const BETTER_UI_CONFIG_FILES = ["better-ui.config.json", "better-ui.config.js", "better-ui.config.mjs"];
+const BETTER_UI_CONFIG_FILES = ["better-ui.config.json"];
 
 function loadBetterUiConfig(projectRoot: string): string[] {
   for (const configFile of BETTER_UI_CONFIG_FILES) {
@@ -672,23 +672,6 @@ export async function scanProject(projectRoot: string, exts?: string[], options?
   }
 
   return [...reports.values()].filter(report => report.messages.length > 0);
-}
-
-export async function applyEslintFixes(projectRoot: string, exts?: string[], options?: ScanProjectOptions) {
-  const extensions = normalizeExtensions(exts);
-  const eslint = createEslint(projectRoot, true);
-  const files = await collectFiles(resolveProjectPath(projectRoot, ".", "Project root"), extensions, options);
-  const lintableFiles = await collectLintableFiles(eslint, files);
-
-  for (const file of lintableFiles) {
-    const code = await fs.promises.readFile(file, "utf8");
-    try {
-      const results = await eslint.lintText(code, { filePath: file, warnIgnored: false });
-      await ESLint.outputFixes(results as any);
-    } catch (err) {
-      console.warn(`Could not fix ${file}: ${err}`);
-    }
-  }
 }
 
 export async function previewEslintFixes(projectRoot: string, exts?: string[], options?: ScanProjectOptions): Promise<FixPreview[]> {

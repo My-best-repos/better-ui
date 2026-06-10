@@ -10,14 +10,13 @@ import { COMMANDS } from "../commandCatalog";
 import { loadConfig, getExtensions, getReportFile, detectFramework } from "../config";
 import { explainMessage } from "../explanations";
 import { getCurrentBranch, isGitRepository } from "../gitUtils";
-// snapshot/history removed from TUI
 import { buildHotspots } from "../insights";
 import { printSummary } from "../reporters/terminalReporter";
 import { scanDependencies } from "../scanners/dependencyScanner";
 import { generateWebP, scanImages } from "../scanners/imageScanner";
 import { parseSlashCommand } from "../slashCommands";
-import { printBanner, printPanel, printGrid, formatDelta, formatElapsed, printRunSummary, groupMessages, groupMessagesByRule } from "../terminalUi";
-import { INIT_NOTE, IMAGES_WEBP_NOTE } from "../commandText";
+import { printBanner, printPanel, printGrid, formatElapsed, printRunSummary, groupMessages, groupMessagesByRule, printRelatedCommands, categoryRecommendations } from "../terminalUi";
+import { INIT_NOTE } from "../commandText";
 import {
   applyInteractiveHunkSelection,
   runAccessibilityWorkflow,
@@ -40,7 +39,6 @@ import { renderPerformanceReport } from "../renderers/performanceRenderer";
 import { renderStackAuditReport } from "../renderers/stackAuditRenderer";
 import { renderMigrationReport } from "../renderers/migrationRenderer";
 import { renderFeScoreReport } from "../renderers/feScoreRenderer";
-import { formatRelatedCommands } from "../relatedCommands";
 import { scanColors, scanStandards, scanTypography, scanSpacing } from "../uiTools";
 
 const altMap: Record<string, string> = {
@@ -52,22 +50,6 @@ const altMap: Record<string, string> = {
   "echarts": "Chart.js (1/3 the size) or uPlot",
   "d3": "d3-selection only instead of full d3"
 };
-
-function categoryRecommendations(category: string): string[] {
-  const recs: Record<string, string[]> = {
-    "maintainability": ["Split large files into smaller modules", "Extract repeated logic into shared utilities", "Use consistent file naming conventions"],
-    "accessibility": ["Add aria-* attributes to interactive elements", "Ensure sufficient color contrast", "Add keyboard navigation support", "Use semantic HTML elements"],
-    "performance": ["Optimize and compress images", "Lazy-load heavy components", "Tree-shake unused exports", "Avoid unnecessary re-renders"],
-    "code-quality": ["Remove unused variables and imports", "Use strict equality (===) over loose (==)", "Add JSDoc/TSDoc to public APIs", "Fix console.log statements"],
-    "correctness": ["Fix all errors before deployment", "Add proper error boundaries", "Validate edge cases in conditionals"],
-    "dx": ["Standardize import paths with aliases", "Add pre-commit hooks for linting", "Create consistent component patterns"]
-  };
-  return recs[category] || [];
-}
-
-function printRelatedCommands(key: string) {
-  printPanel("Next Best Moves", formatRelatedCommands(key), "cyan");
-}
 
 function normalizeCommandText(value: string) {
   return value.toLowerCase().replace(/^\//, "");
@@ -256,7 +238,7 @@ async function showCommandPalette() {
     const bottomBorder = chalk.cyan("╰" + "─".repeat(boxWidth) + "╯");
 
     const choices = COMMANDS
-      .filter(command => command.slash !== "/commands" && command.slash !== "/help")
+      .filter(command => command.slash !== "/commands")
       .sort((a, b) => a.slash.localeCompare(b.slash))
       .map(command => {
         const slashPad = command.slash.padEnd(slashWidth, " ");
@@ -636,7 +618,7 @@ async function _runSlashCommand(cwd: string, input: string) {
 
     const cfgFields: Record<string, { recommended: string; hint: string }> = {
       "projectName": { recommended: `"${projectName}"`, hint: "Used in report headers and metadata" },
-      "preset": { recommended: `"react", "next", "vite", "vue", "landing-page", "typescript-library"`, hint: "Enables preset-specific rules and defaults" },
+      "preset": { recommended: `"react", "next", "vite", "landing-page", "typescript-library"`, hint: "Enables preset-specific rules and defaults" },
       "defaults.reportFile": { recommended: `"report.txt"`, hint: "Default output path for scan reports" },
       "defaults.extensions": { recommended: `[".js", ".jsx", ".ts", ".tsx"]`, hint: "File extensions the scanner will process" }
     };
@@ -1313,7 +1295,6 @@ export async function runTui() {
     if (!nextCommandToRun) {
       const config = loadConfig(cwd);
       const defaultExts = getExtensions(config) || [".js", ".jsx", ".ts", ".tsx"];
-      const reportPath = getReportFile(cwd, config);
       const gitEnabled = isGitRepository(cwd);
       const stack = detectFramework(cwd);
 
@@ -1331,7 +1312,6 @@ export async function runTui() {
           lines: [
             `${chalk.cyan("Path:")} ${cwd}`,
             `${chalk.cyan("Stack:")} ${stack.join(" + ")}`,
-            `${chalk.cyan("Report:")} ${path.basename(reportPath)}`,
             `${chalk.cyan("Extensions:")} ${defaultExts.join(", ")}`,
             `${chalk.cyan("Git:")} ${gitEnabled ? getCurrentBranch(cwd) || "attached" : "not a repository"}`,
             `${chalk.cyan("Config:")} ${config.preset || "custom"} preset`
