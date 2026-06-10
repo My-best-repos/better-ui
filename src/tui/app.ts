@@ -5,7 +5,6 @@ const Input: any = Enquirer.Input;
 import path from "path";
 import fs from "fs";
 import chalk from "chalk";
-import { runInit } from "../cli/initCommand";
 import { COMMANDS } from "../commandCatalog";
 import { loadConfig, getExtensions, getReportFile, detectFramework } from "../config";
 import { explainMessage } from "../explanations";
@@ -16,12 +15,9 @@ import { scanDependencies } from "../scanners/dependencyScanner";
 import { generateWebP, scanImages } from "../scanners/imageScanner";
 import { parseSlashCommand } from "../slashCommands";
 import { printBanner, printPanel, printGrid, formatElapsed, printRunSummary, groupMessages, groupMessagesByRule, printRelatedCommands, categoryRecommendations } from "../terminalUi";
-import { INIT_NOTE } from "../commandText";
 import {
   applyInteractiveHunkSelection,
   runAccessibilityWorkflow,
-  runDoctorWorkflow,
-  runExplainWorkflow,
   runFixWorkflow,
   runHealthWorkflow,
   runInteractiveFixWorkflow,
@@ -108,18 +104,15 @@ const COMMAND_HEADLINES: Record<string, { title: string; tone: string; color: "m
   "fix-preview": { title: "Repair Preview", tone: "Nothing is written yet. Review the safe fixes before you commit to them.", color: "yellow" },
   "fix-apply": { title: "Repair Pass", tone: "Safe fixes are being written. Re-scan afterwards to prove the improvement.", color: "green" },
   "fix-interactive": { title: "Surgical Fix Mode", tone: "Choose hunks carefully. Precision beats bulk changes in legacy code.", color: "green" },
-  "doctor": { title: "Project Readiness", tone: "Configuration, scripts, and foundations first. Build on solid ground.", color: "magenta" },
   "health": { title: "Health Brief", tone: "This is the strategic view: category scores, pressure points, and next priorities.", color: "blue" },
   "deps": { title: "Dependency Audit", tone: "Trim dead weight, spot oversized packages, and keep the frontend lean.", color: "yellow" },
   "advanced": { title: "Operator Guide", tone: "High-leverage flags and faster workflows for people who want the sharp tools.", color: "magenta" },
   "hotspots": { title: "Priority Queue", tone: "These files are your leverage points. Fix them first to move the score fastest.", color: "red" },
   "check-accessibility": { title: "Accessibility Pass", tone: "Accessibility is not decoration. This pass isolates barriers before they ship.", color: "blue" },
 
-  "explain": { title: "Rule Translator", tone: "Turn raw findings into intent, impact, and the shortest correct fix.", color: "yellow" },
   "seo": { title: "SEO Audit", tone: "Meta tags, Open Graph, structured data, and content quality — find what search engines see.", color: "blue" },
   "images": { title: "Asset Pass", tone: "Image weight is frontend performance. Audit the payload before it hurts users.", color: "blue" },
   "images-generate": { title: "Asset Optimization", tone: "Compression is being turned into concrete bytes saved, not just good intentions.", color: "green" },
-  "init": { title: "Setup Concierge", tone: "Bootstrapping the project so the rest of the toolchain has something solid to stand on.", color: "green" },
   "commands": { title: "Command Index", tone: "This is the operating surface. Know the tools, then move with intent.", color: "magenta" },
   "ui-colors": { title: "Color Palette Scan", tone: "Every hex, rgb, and Tailwind color class across the project. Know your palette.", color: "magenta" },
   "ui-standards": { title: "Standards Review", tone: "Naming, exports, props, and complexity — component hygiene matters.", color: "cyan" },
@@ -320,7 +313,7 @@ async function askForFormat(tokensOrProvided: string[] | string | undefined,
   if (Array.isArray(tokensOrProvided)) provided = (readOption(tokensOrProvided, "--format") as string | undefined);
   else provided = (tokensOrProvided as string | undefined) || maybeProvided;
   provided = provided || "json";
-  const choices = ["markdown", "json", "html"];
+  const choices = ["markdown", "json"];
   const initial = (typeof provided === "string" && choices.indexOf(provided) >= 0) ? provided : "json";
   try {
     const answer: any = await prompt({
@@ -330,9 +323,9 @@ async function askForFormat(tokensOrProvided: string[] | string | undefined,
       choices,
       initial
     } as any);
-    return (answer.format || initial) as "json" | "markdown" | "html";
+    return (answer.format || initial) as "json" | "markdown";
   } catch (err) {
-    return provided as "json" | "markdown" | "html";
+    return provided as "json" | "markdown";
   }
 }
 
@@ -356,7 +349,7 @@ async function _runSlashCommand(cwd: string, input: string) {
     const outProvided = readOption(tokens, "--out");
     const noSaveFlag = readFlag(tokens, "--no-save");
     let outPath: string | undefined = outProvided;
-    let chosenFormat: "json" | "markdown" | "html" | undefined = undefined;
+    let chosenFormat: "json" | "markdown" | undefined = undefined;
 
     if (!outProvided && !noSaveFlag) {
       try {
@@ -611,91 +604,6 @@ async function _runSlashCommand(cwd: string, input: string) {
     return { shouldExit: false };
   }
 
-  if (command === "doctor") {
-    const result = await runDoctorWorkflow(cwd);
-    const pkg = JSON.parse(fs.readFileSync(path.join(cwd, "package.json"), "utf8")) as { name?: string; scripts?: Record<string, string>; dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
-    const projectName = pkg.name || path.basename(cwd);
-
-    const cfgFields: Record<string, { recommended: string; hint: string }> = {
-      "projectName": { recommended: `"${projectName}"`, hint: "Used in report headers and metadata" },
-      "preset": { recommended: `"react", "next", "vite", "landing-page", "typescript-library"`, hint: "Enables preset-specific rules and defaults" },
-      "defaults.reportFile": { recommended: `"report.txt"`, hint: "Default output path for scan reports" },
-      "defaults.extensions": { recommended: `[".js", ".jsx", ".ts", ".tsx"]`, hint: "File extensions the scanner will process" }
-    };
-    const cfgLines: string[] = [];
-    for (const [field, info] of Object.entries(cfgFields)) {
-      if (result.doctor.missingConfig.includes(field)) {
-        cfgLines.push(`  ${chalk.red("✗")} ${chalk.bold(field)}  ${chalk.dim("→ " + info.recommended)}`);
-        cfgLines.push(`    ${chalk.dim(info.hint)}`);
-      } else {
-        cfgLines.push(`  ${chalk.green("✓")} ${chalk.bold(field)}`);
-      }
-    }
-    if (cfgLines.length > 0) {
-      printPanel("Config Audit", cfgLines, "yellow");
-    }
-
-    const scriptLines: string[] = [];
-    const scriptChecks = ["better-ui:scan", "better-ui:fix", "better-ui:tui", "better-ui:health", "better-ui:doctor", "better-ui:a11y", "better-ui:init"];
-    for (const script of scriptChecks) {
-      const existing = pkg.scripts?.[script];
-      if (existing) {
-        scriptLines.push(`  ${chalk.green("✓")} ${chalk.bold(script)}  ${chalk.dim("→ " + existing)}`);
-      } else {
-        scriptLines.push(`  ${chalk.red("✗")} ${chalk.bold(script)}  ${chalk.dim("(not configured)")}`);
-      }
-    }
-    const scriptPanelTitle = `Scripts  (${scriptChecks.length - result.doctor.missingScripts.length}/${scriptChecks.length} present)`;
-    printPanel(scriptPanelTitle, scriptLines, "blue");
-
-    const eslintPath = path.join(cwd, "eslint.config.mjs");
-    let eslintLines: string[] = [];
-    if (fs.existsSync(eslintPath)) {
-      const eslintContent = fs.readFileSync(eslintPath, "utf8");
-      const enableRules = [...eslintContent.matchAll(/"([^"]+)":\s*"(error|warn)"/g)].map(m => `${m[1]} (${m[2]})`);
-      const disableRules = [...eslintContent.matchAll(/"([^"]+)":\s*"off"/g)].map(m => m[1]);
-      const ignoredPaths = [...eslintContent.matchAll(/ignores:\s*\[([^\]]+)\]/g)].flatMap(m => m[1].split(",").map(s => s.trim().replace(/['"]/g, "")));
-      if (enableRules.length > 0) eslintLines.push(`  ${chalk.green("Enabled:")} ${enableRules.join(", ")}`);
-      if (disableRules.length > 0) eslintLines.push(`  ${chalk.yellow("Disabled:")} ${disableRules.join(", ")}`);
-      if (ignoredPaths.length > 0) eslintLines.push(`  ${chalk.dim("Ignored:")} ${ignoredPaths.join(", ")}`);
-      eslintLines.push(`  ${chalk.dim("Files:")} **/*.{js,cjs,mjs,ts,tsx}  ${chalk.dim("Parser:")} @typescript-eslint/parser`);
-    } else {
-      eslintLines.push("  No ESLint configuration found.");
-    }
-    printPanel("ESLint Config", eslintLines, "cyan");
-
-    const tsconfigPath = path.join(cwd, "tsconfig.json");
-    let tsLines: string[] = [];
-    if (fs.existsSync(tsconfigPath)) {
-      try {
-        const tsconfig = JSON.parse(fs.readFileSync(tsconfigPath, "utf8")) as { compilerOptions?: Record<string, unknown> };
-        const co = tsconfig.compilerOptions || {};
-        tsLines.push(`  ${chalk.cyan("Target:")} ${String(co.target || "not set")}`);
-        tsLines.push(`  ${chalk.cyan("Module:")} ${String(co.module || "not set")}`);
-        tsLines.push(`  ${co.strict === true ? chalk.green("✓ Strict mode enabled") : chalk.red("✗ Strict mode NOT enabled")}`);
-      } catch {
-        tsLines.push("  Could not parse tsconfig.json");
-      }
-    } else {
-      tsLines.push("  No TypeScript config found.");
-    }
-    printPanel("TypeScript Config", tsLines, "cyan");
-
-    const frameworks = detectFramework(cwd);
-    let depCount = 0;
-    if (pkg.dependencies) depCount += Object.keys(pkg.dependencies).length;
-    if (pkg.devDependencies) depCount += Object.keys(pkg.devDependencies).length;
-    printPanel("Project Profile", [
-      `${chalk.cyan("Name:")} ${chalk.bold(projectName)}`,
-      `${chalk.cyan("Stack:")} ${frameworks.join(", ")}`,
-      `${chalk.cyan("Dependencies:")} ${depCount} packages (${Object.keys(pkg.dependencies || {}).length} runtime + ${Object.keys(pkg.devDependencies || {}).length} dev)`,
-      `${chalk.cyan("Images:")} ${result.health.summary.images} assets (${Math.round(result.health.summary.imageBytes / 1024)} KB)`,
-      `${chalk.cyan("Autofixable:")} ${result.health.summary.safeAutofixes} issues  ${chalk.cyan("High impact:")} ${result.health.summary.highImpactIssues}`
-    ], "magenta");
-    printRelatedCommands("doctor");
-    return { shouldExit: false };
-  }
-
   if (command === "health") {
     const result = await runHealthWorkflow(cwd);
 
@@ -794,8 +702,7 @@ async function _runSlashCommand(cwd: string, input: string) {
       ["--changed", "Scan only modified/untracked files"],
       ["--staged", "Scan only files ready to commit"],
       ["--scan-images", "Discover heavy images during scan"],
-      ["--format html", "Generate a visual dashboard"],
-      ["--open", "Open the HTML report in your browser"]
+          ["--format markdown", "Generate a Markdown report"]
     ];
     const fixLines = [
       ["/fix --interactive", "Pick diffs one by one"],
@@ -931,44 +838,6 @@ async function _runSlashCommand(cwd: string, input: string) {
     return { shouldExit: false };
   }
 
-  if (command === "explain") {
-    const result = await runExplainWorkflow(cwd, tokens[1]);
-    printPanel("Explain", [
-      `${chalk.cyan("Target:")} ${result.target}`,
-      `${chalk.cyan("Files with issues:")} ${result.report.summary.filesWithIssues}`,
-      `${chalk.cyan("Errors:")} ${chalk.red(String(result.report.summary.errors))}  ${chalk.cyan("Warnings:")} ${chalk.yellow(String(result.report.summary.warnings))}`,
-      `${chalk.cyan("Total issues:")} ${result.report.summary.totalIssues}`
-    ], "magenta");
-
-    const shortSummary = result.summary || (result.body ? String(result.body).split("\n")[0] : "");
-    if (shortSummary) console.log(`${chalk.cyan("Short summary:")} ${chalk.dim(shortSummary)}\n`);
-
-    const seenRules = new Set<string>();
-    const explainLines: string[] = [];
-    for (const file of result.report.files) {
-      for (const msg of file.messages) {
-        const ruleKey = msg.ruleId || "general";
-        if (seenRules.has(ruleKey)) continue;
-        seenRules.add(ruleKey);
-        const explanation = explainMessage(msg);
-        explainLines.push(`  ${chalk.bold(msg.ruleId || "General issue")}`);
-        explainLines.push(`    ${chalk.dim("Why:")} ${explanation.why}`);
-        explainLines.push(`    ${chalk.green("Fix:")} ${explanation.fix}`);
-        explainLines.push("");
-      }
-    }
-    if (explainLines.length > 0) {
-      printPanel("Rule Explanations", explainLines, "cyan");
-    }
-
-    if (result.summary) {
-      console.log(chalk.dim("\nSummary:"));
-      console.log(`  ${result.summary}`);
-    }
-    printRelatedCommands("explain");
-    return { shouldExit: false };
-  }
-
   if (command === "images") {
     const images = await scanImages(cwd);
     if (images.length === 0) {
@@ -1011,20 +880,6 @@ async function _runSlashCommand(cwd: string, input: string) {
       printPanel("Generated WebP", generated.slice(0, 14), "magenta");
     }
     printRelatedCommands(readFlag(tokens, "--generate") ? "images-generate" : "images");
-    return { shouldExit: false };
-  }
-
-  if (command === "init") {
-    const result = await runInit(cwd, { preset: readOption(tokens, "--preset") });
-    const config = loadConfig(cwd);
-    printPanel("Setup Complete", [
-      `${chalk.cyan("Project:")} ${chalk.bold(config.projectName || path.basename(cwd))}`,
-      `${chalk.cyan("Preset:")} ${config.preset || "custom"}`,
-      `${chalk.cyan("Report file:")} ${config.defaults?.reportFile || "report.txt"}`,
-      result.openTui ? "The command center is already open here." : `Run ${chalk.bold("/scan")} to generate a report.`
-    ], "green");
-    printPanel("Note", [chalk.dim(INIT_NOTE)], "cyan");
-    printRelatedCommands("init");
     return { shouldExit: false };
   }
 

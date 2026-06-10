@@ -55,6 +55,5 @@ npx ts-node src/cli.ts /hotspots --min-score 20
 ## Related commands
 
 - `/fix` — Preview or apply autofixes in the identified hotspots.
-- `/explain` — Get human-readable explanations for the rules found in hot files.
 - `/health` — See category-level score impact across the project.
 - `/scan` — Re-run the full scan after addressing hotspot issues.

@@ -86,11 +86,6 @@ describe("getReportFile", () => {
     expect(path.basename(result)).toBe("report.txt");
   });
 
-  it("defaults to report.html for html format", () => {
-    const result = getReportFile(tmpDir, {}, undefined, "html");
-    expect(path.basename(result)).toBe("report.html");
-  });
-
   it("defaults to report.md for markdown format", () => {
     const result = getReportFile(tmpDir, {}, undefined, "markdown");
     expect(path.basename(result)).toBe("report.md");
@@ -99,11 +94,6 @@ describe("getReportFile", () => {
   it("uses configured default reportFile", () => {
     const result = getReportFile(tmpDir, { defaults: { reportFile: "my-report.json" } });
     expect(path.basename(result)).toBe("my-report.json");
-  });
-
-  it("swaps .json extension to .html when format is html", () => {
-    const result = getReportFile(tmpDir, { defaults: { reportFile: "my-report.json" } }, undefined, "html");
-    expect(path.basename(result)).toBe("my-report.html");
   });
 
   it("swaps .json extension to .md when format is markdown", () => {

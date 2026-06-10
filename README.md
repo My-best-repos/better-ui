@@ -41,9 +41,7 @@ The goal is to make `better-ui` broadly useful for frontend developers while sta
 - Scores the project health from `0` to `100`.
 - Tracks issue categories: correctness, maintainability, accessibility, performance, DX, and code quality.
 - Reviews only changed or staged files for pre-commit / PR workflows.
-- Adds a doctor view for config and script readiness.
-- Can explain findings in human terms, including why they matter and safer fixes.
-- Supports HTML reports for a more shareable visual summary.
+- Adds a health score with category-level breakdowns.
 - Shows hotspots so you can fix the highest-risk files first.
 - Scans images and can generate `.webp` variants.
 - Scans dependencies to find unused packages and heavy libraries.
@@ -69,7 +67,7 @@ The goal is to make `better-ui` broadly useful for frontend developers while sta
   </tr>
   <tr>
     <td><strong>Testing</strong><br><code>vitest</code></td>
-    <td><strong>Output</strong><br>JSON, Markdown, HTML, TUI</td>
+    <td><strong>Output</strong><br>JSON, Markdown, TUI</td>
     <td><strong>Details</strong><br><code>docs/technology-stack.md</code></td>
   </tr>
 </table>
@@ -121,24 +119,14 @@ That source form is only for working inside the `better-ui` repository itself.
 4. **Check health score**
    `npx ts-node src/cli.ts /health`
 
-6. **Explain findings for a file or report**
-   `npx ts-node src/cli.ts /explain src/components/App.tsx`
-
-7. **Generate a visual HTML report and open it**
-   `npx ts-node src/cli.ts /scan --format html --out report.html --open`
-
-8. **View advanced flows and subcommands**
+5. **View advanced flows and subcommands**
    `npx ts-node src/cli.ts /advanced`
-
-9. **Bootstrap using a preset**
-   `npx ts-node src/cli.ts /init --preset next`
 
 ## Supercharged Scans
 
 The `/scan` command includes powerful flags for professional workflows:
 - `--no-save`: Does not write the report file to disk (useful for CI).
 - `--top <n>`: Controls how many hotspots (high-risk files) to display (default is 5).
-- `--open`: If generating an HTML report, automatically opens it in your default browser.
 - `--scan-images`: Also runs the image scan to generate an inventory of heavy assets.
 
 Recommended quick-fix flow:
@@ -154,11 +142,9 @@ The CLI is slash-only. Use commands such as:
 - `better-ui-cli /scan`
 - `better-ui-cli /fix`
 - `better-ui-cli /health`
-- `better-ui-cli /doctor`
 - `better-ui-cli /hotspots`
 - `better-ui-cli /a11y`
 - `better-ui-cli /deps`
-- `better-ui-cli /explain`
 - `better-ui-cli /images`
 - `better-ui-cli /seo`
 - `better-ui-cli /tech-debt`
@@ -166,7 +152,6 @@ The CLI is slash-only. Use commands such as:
 - `better-ui-cli /stack-audit`
 - `better-ui-cli /migration`
 - `better-ui-cli /fe-score`
-- `better-ui-cli /init`
 - `better-ui-cli /menu`
 - `better-ui-cli /advanced`
 - `better-ui-cli /ui-colors`
@@ -179,21 +164,19 @@ The CLI is slash-only. Use commands such as:
 Inside the TUI, you can use these directly:
 - `/scan`, `/changed`, `/staged`
 - `/fix`, `/fix-interactive`, `/fix-apply`
-- `/health`, `/doctor`, `/hotspots`, `/a11y`
-- `/deps`, `/explain`, `/images`, `/seo`, `/tech-debt`, `/performance`, `/stack-audit`, `/migration`, `/fe-score`, `/init`
+- `/health`, `/hotspots`, `/a11y`
+- `/deps`, `/images`, `/seo`, `/tech-debt`, `/performance`, `/stack-audit`, `/migration`, `/fe-score`
 - `/advanced`, `/menu`, `/commands`, `/exit`
 - `/ui-colors`, `/ui-standards`, `/ui-typography`, `/ui-spacing`
 
 ## Reports and scoring
 
-`scan` writes a report in the requested format (json, markdown, or html).
+`scan` writes a report in the requested format (json or markdown).
 Each report includes: errors, warnings, total issues, files with issues, health score, category counts, and file-level messages.
-Supported formats: `json`, `markdown`, `html`
+Supported formats: `json`, `markdown`
 
 `health` adds: category scores, safe autofix count, high-impact issue count, image payload summary, top priorities, hotspots.
-`doctor` adds: config completeness, missing helper scripts, project readiness hints.
 `deps` adds: unused dependencies (dead code), heavy dependency warnings.
-`explain` adds: why the issue matters, how to fix it safely, estimated risk.
 
 ## Git-aware workflows
 
@@ -212,7 +195,7 @@ Every primary action exposed in the TUI has a slash-command equivalent. After ru
 
 ## Configuration
 
-`better-ui-cli /init` creates `better-ui.config.json`. You can also start with presets (`react`, `next`, `vite`, `landing-page`, `typescript-library`).
+Create `better-ui.config.json` in the project root to set preferences. You can set a preset manually under the `"preset"` field (`react`, `next`, `vite`, `landing-page`, `typescript-library`).
 
 ## Security and guardrails
 
@@ -248,4 +231,4 @@ See `docs/release-automation.md` for details on how the release workflow works.
 - `src/scanners/imageScanner.ts`: image discovery and WebP generation.
 - `src/insights.ts`: scoring, hotspots, markdown summaries.
 - `src/slashCommands.ts`: slash command parsing and aliases.
-- `src/reporters/htmlReporter.ts`: visual HTML report generation.
+

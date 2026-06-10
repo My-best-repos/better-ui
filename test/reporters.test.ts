@@ -3,7 +3,6 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { writeJsonReport } from "../src/reporters/jsonReporter";
-import { writeHtmlReport } from "../src/reporters/htmlReporter";
 import type { ScanReport, FileReport, LintMessage } from "../src/types";
 
 let tmpDir: string;
@@ -75,32 +74,4 @@ describe("writeJsonReport", () => {
   });
 });
 
-describe("writeHtmlReport", () => {
-  it("writes an HTML file", () => {
-    const outPath = path.join(tmpDir, "report.html");
-    const result = writeHtmlReport(tmpDir, outPath, sampleReport);
-    expect(fs.existsSync(outPath)).toBe(true);
-    expect(result).toBe(outPath);
-  });
 
-  it("includes JSON content in a pre tag", () => {
-    const outPath = path.join(tmpDir, "report.html");
-    writeHtmlReport(tmpDir, outPath, sampleReport);
-    const content = fs.readFileSync(outPath, "utf8");
-    expect(content).toContain("<pre>");
-    expect(content).toContain("</pre>");
-    expect(content).toContain("Scan Report");
-  });
-
-  it("contains the report data", () => {
-    const outPath = path.join(tmpDir, "report.html");
-    writeHtmlReport(tmpDir, outPath, sampleReport);
-    const content = fs.readFileSync(outPath, "utf8");
-    expect(content).toContain("80"); // score in the JSON inside pre
-  });
-
-  it("throws when path escapes project root", () => {
-    expect(() => writeHtmlReport(tmpDir, path.resolve("/outside/report.html"), sampleReport))
-      .toThrow();
-  });
-});

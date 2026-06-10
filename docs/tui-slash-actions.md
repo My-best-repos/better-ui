@@ -17,10 +17,8 @@ For discoverability, `Ctrl+Shift+S` and `/commands` both open the command palett
 - `/fix-apply`
 - `/fix-interactive`
 - `/health`
-- `/doctor`
 - `/hotspots`
 - `/a11y`
-- `/explain`
 - `/images`
 - `/seo`
 - `/tech-debt`
@@ -28,7 +26,6 @@ For discoverability, `Ctrl+Shift+S` and `/commands` both open the command palett
 - `/stack-audit`
 - `/migration`
 - `/fe-score`
-- `/init`
 - `/ui-typography`
 - `/ui-spacing`
 - `/commands`

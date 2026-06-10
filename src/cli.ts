@@ -8,12 +8,9 @@ import { COMMANDS } from "./commandCatalog";
 
 const pkgJson = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"));
 const VERSION = pkgJson.version;
-import { runInit } from "./cli/initCommand";
 import {
   applyInteractiveHunkSelection,
   runAccessibilityWorkflow,
-  runDoctorWorkflow,
-  runExplainWorkflow,
   runFixWorkflow,
   runHealthWorkflow,
   runInteractiveFixWorkflow,
@@ -43,7 +40,7 @@ import {
   runMigrationWorkflow,
   runFeScoreWorkflow,
 } from "./cli/workflows";
-import { INIT_NOTE } from "./commandText";
+
 
 function parseExtensions(value?: string) {
   return value ? value.split(",").map(segment => segment.trim()).filter(Boolean) : undefined;
@@ -74,10 +71,9 @@ addScopeOptions(
     .description("Scan the project and produce a report with scoring and categories")
     .option("--out <file>", "Report file")
     .option("--ext <exts>", "Comma-separated extensions (eg. .js,.ts)")
-    .option("--format <format>", "json, markdown, or html", "json")
+    .option("--format <format>", "json or markdown", "json")
     .option("--no-save", "Do not write the report file to disk (still produce a result in memory)")
     .option("--top <n>", "Number of hotspots to show", (v) => parseInt(v, 10), 5)
-    .option("--open", "Open the generated HTML report with the system default application")
     .option("--scan-images", "Also scan images and show an image summary")
     .option("--verbose", "Show extended output after the scan")
     .action(async (opts: any) => {
@@ -177,27 +173,6 @@ addScopeOptions(
         // Related commands
         printRelatedCommands(opts.changed ? "scan-changed" : opts.staged ? "scan-staged" : "scan");
         printFooter();
-
-        // Optionally open generated HTML report
-        if (opts.open) {
-          if (result.reportPath && String(result.reportPath).toLowerCase().endsWith(".html")) {
-            try {
-              // platform-specific open
-              if (process.platform === "win32") {
-                exec(`start "" "${result.reportPath}"`);
-              } else if (process.platform === "darwin") {
-                exec(`open "${result.reportPath}"`);
-              } else {
-                exec(`xdg-open "${result.reportPath}"`);
-              }
-              printPanel("Opened Report", ["The HTML report was opened in your default application."], "magenta");
-            } catch (err) {
-              printPanel("Open Report", ["Could not open the report automatically. Please open the file manually:" , String(result.reportPath)], "yellow");
-            }
-          } else {
-            printPanel("Open Report", ["The --open option works only for HTML reports. Re-run with --format html or open the file manually."], "yellow");
-          }
-        }
 
         if (opts.verbose) {
           printPanel("Raw Report Path", [String(result.reportPath)], "cyan");
@@ -359,119 +334,6 @@ addScopeOptions(
       }
     })
 );
-
-program
-  .command("doctor")
-  .description("Run a broad project doctor view with health, config, and script checks")
-  .action(async () => {
-    try {
-      const result = await runDoctorWorkflow(process.cwd());
-      printCommandIntro(process.argv.slice(2).join(" ") || "/doctor");
-
-      const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8")) as { name?: string; scripts?: Record<string, string>; dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
-      const projectName = pkg.name || path.basename(process.cwd());
-
-      // Config analysis
-      const cfgLines: string[] = [];
-      const cfgFields: Record<string, { recommended: string; hint: string }> = {
-        "projectName": { recommended: `"${projectName}"`, hint: "Used in report headers and metadata" },
-        "preset": { recommended: `"react", "next", "vite", "landing-page", "typescript-library"`, hint: "Enables preset-specific rules and defaults" },
-        "defaults.reportFile": { recommended: `"report.txt"`, hint: "Default output path for scan reports" },
-        "defaults.extensions": { recommended: `[".js", ".jsx", ".ts", ".tsx"]`, hint: "File extensions the scanner will process" }
-      };
-      for (const [field, info] of Object.entries(cfgFields)) {
-        if (result.doctor.missingConfig.includes(field)) {
-          cfgLines.push(`  ${chalk.red("✗")} ${chalk.bold(field)}  ${chalk.dim("→ " + info.recommended)}`);
-          cfgLines.push(`    ${chalk.dim(info.hint)}`);
-        } else {
-          cfgLines.push(`  ${chalk.green("✓")} ${chalk.bold(field)}`);
-        }
-      }
-      if (cfgLines.length > 0) {
-        printPanel("Config Audit", cfgLines, "yellow");
-      }
-
-      // Script analysis
-      const scriptLines: string[] = [];
-      const scriptChecks = ["better-ui:scan", "better-ui:fix", "better-ui:tui", "better-ui:health", "better-ui:doctor", "better-ui:a11y", "better-ui:init"];
-      for (const script of scriptChecks) {
-        const existing = pkg.scripts?.[script];
-        if (existing) {
-          scriptLines.push(`  ${chalk.green("✓")} ${chalk.bold(script)}  ${chalk.dim("→ " + existing)}`);
-        } else {
-          scriptLines.push(`  ${chalk.red("✗")} ${chalk.bold(script)}  ${chalk.dim("(not configured)")}`);
-        }
-      }
-      const scriptPanelTitle = `Scripts  (${scriptChecks.length - result.doctor.missingScripts.length}/${scriptChecks.length} present)`;
-      printPanel(scriptPanelTitle, scriptLines, "blue");
-
-      // ESLint config analysis
-      const eslintPath = path.join(process.cwd(), "eslint.config.mjs");
-      let eslintLines: string[] = [];
-      if (fs.existsSync(eslintPath)) {
-        const eslintContent = fs.readFileSync(eslintPath, "utf8");
-        const enableRules = [...eslintContent.matchAll(/"([^"]+)":\s*"(error|warn)"/g)].map(m => `${m[1]} (${m[2]})`);
-        const disableRules = [...eslintContent.matchAll(/"([^"]+)":\s*"off"/g)].map(m => m[1]);
-        const ignoredPaths = [...eslintContent.matchAll(/ignores:\s*\[([^\]]+)\]/g)].flatMap(m => m[1].split(",").map(s => s.trim().replace(/['"]/g, "")));
-        if (enableRules.length > 0) {
-          eslintLines.push(`  ${chalk.green("Enabled:")} ${enableRules.join(", ")}`);
-        }
-        if (disableRules.length > 0) {
-          eslintLines.push(`  ${chalk.yellow("Disabled:")} ${disableRules.join(", ")}`);
-        }
-        if (ignoredPaths.length > 0) {
-          eslintLines.push(`  ${chalk.dim("Ignored:")} ${ignoredPaths.join(", ")}`);
-        }
-        eslintLines.push(`  ${chalk.dim("Files:")} **/*.{js,cjs,mjs,ts,tsx}  ${chalk.dim("Parser:")} @typescript-eslint/parser`);
-      } else {
-        eslintLines.push("  No ESLint configuration found.");
-      }
-      printPanel("ESLint Config", eslintLines, "cyan");
-
-      // tsconfig analysis
-      const tsconfigPath = path.join(process.cwd(), "tsconfig.json");
-      let tsLines: string[] = [];
-      if (fs.existsSync(tsconfigPath)) {
-        try {
-          const tsconfig = JSON.parse(fs.readFileSync(tsconfigPath, "utf8")) as { compilerOptions?: Record<string, unknown> };
-          const co = tsconfig.compilerOptions || {};
-          const target = co.target || "not set";
-          const strictMode = co.strict === true;
-          const moduleType = co.module || "not set";
-          tsLines.push(`  ${chalk.cyan("Target:")} ${String(target)}`);
-          tsLines.push(`  ${chalk.cyan("Module:")} ${String(moduleType)}`);
-          tsLines.push(`  ${strictMode ? chalk.green("✓ Strict mode enabled") : chalk.red("✗ Strict mode NOT enabled")}`);
-          if (typeof co.skipLibCheck !== "undefined") {
-            tsLines.push(`  ${chalk.dim("skipLibCheck:")} ${String(co.skipLibCheck)}`);
-          }
-        } catch {
-          tsLines.push("  Could not parse tsconfig.json");
-        }
-      } else {
-        tsLines.push("  No TypeScript config found.");
-      }
-      printPanel("TypeScript Config", tsLines, "cyan");
-
-      // Framework detection
-      const frameworks = detectFramework(process.cwd());
-      let depCount = 0;
-      if (pkg.dependencies) depCount += Object.keys(pkg.dependencies).length;
-      if (pkg.devDependencies) depCount += Object.keys(pkg.devDependencies).length;
-      printPanel("Project Profile", [
-        `${chalk.cyan("Name:")} ${chalk.bold(projectName)}`,
-        `${chalk.cyan("Stack:")} ${frameworks.join(", ")}`,
-        `${chalk.cyan("Dependencies:")} ${depCount} packages (${Object.keys(pkg.dependencies || {}).length} runtime + ${Object.keys(pkg.devDependencies || {}).length} dev)`,
-        `${chalk.cyan("Images:")} ${result.health.summary.images} assets (${Math.round(result.health.summary.imageBytes / 1024)} KB)`,
-        `${chalk.cyan("Autofixable:")} ${result.health.summary.safeAutofixes} issues  ${chalk.cyan("High impact:")} ${result.health.summary.highImpactIssues}`
-      ], "magenta");
-
-      printRelatedCommands("doctor");
-      printFooter();
-    } catch (err) {
-      console.error("Doctor command failed:", err);
-      process.exitCode = 2;
-    }
-  });
 
 program
   .command("health")
@@ -636,8 +498,7 @@ program
           ["--changed", "Scan only modified/untracked files"],
           ["--staged", "Scan only files ready to commit"],
           ["--scan-images", "Discover heavy images during scan"],
-          ["--format html", "Generate a visual dashboard"],
-          ["--open", "Open the HTML report in your browser"],
+          ["--format markdown", "Generate a Markdown report"],
           ["--verbose", "Show extended scan details"],
           ["--top <n>", "Show top N hotspots (default: 5)"]
         ])
@@ -810,56 +671,6 @@ addScopeOptions(
 );
 
 program
-  .command("explain [target]")
-  .description("Explain why findings matter and how to fix them for a report or file")
-  .action(async (target?: string) => {
-    try {
-      const result = await runExplainWorkflow(process.cwd(), target);
-      printCommandIntro(process.argv.slice(2).join(" ") || "/explain");
-
-      printPanel("Explain", [
-        `${chalk.cyan("Target:")} ${result.target}`,
-        `${chalk.cyan("Files with issues:")} ${result.report.summary.filesWithIssues}`,
-        `${chalk.cyan("Errors:")} ${chalk.red(String(result.report.summary.errors))}  ${chalk.cyan("Warnings:")} ${chalk.yellow(String(result.report.summary.warnings))}`,
-        `${chalk.cyan("Total issues:")} ${result.report.summary.totalIssues}`
-      ], "magenta");
-
-      // Short summary header (use result.summary if available, otherwise first line of body)
-      const shortSummary = result.summary || (result.body ? String(result.body).split("\n")[0] : "");
-      if (shortSummary) console.log(`${chalk.cyan("Short summary:")} ${chalk.dim(shortSummary)}\n`);
-
-      // Per-message explanation detail
-      const seenRules = new Set<string>();
-      const explainLines: string[] = [];
-      for (const file of result.report.files) {
-        for (const msg of file.messages) {
-          const ruleKey = msg.ruleId || "general";
-          if (seenRules.has(ruleKey)) continue;
-          seenRules.add(ruleKey);
-          const explanation = explainMessage(msg);
-          explainLines.push(`  ${chalk.bold(msg.ruleId || "General issue")}`);
-          explainLines.push(`    ${chalk.dim("Why:")} ${explanation.why}`);
-          explainLines.push(`    ${chalk.green("Fix:")} ${explanation.fix}`);
-          explainLines.push("");
-        }
-      }
-      if (explainLines.length > 0) {
-        printPanel("Rule Explanations", explainLines, "cyan");
-      }
-
-      if (result.summary) {
-        console.log(chalk.dim("\nSummary:"));
-        console.log(`  ${result.summary}`);
-      }
-      printRelatedCommands("explain");
-      printFooter();
-    } catch (err) {
-      console.error("Explain command failed:", err);
-      process.exitCode = 2;
-    }
-  });
-
-program
   .command("commands")
   .description("Show the full command catalog and slash aliases")
   .action(() => {
@@ -870,30 +681,6 @@ program
     printPanel("Examples", featured.map(command => `${chalk.cyan(command.slash)} -> ${command.example}`), "magenta");
     printRelatedCommands("commands");
     printFooter();
-  });
-
-program
-  .command("init")
-  .description("Interactive assistant to set up better-ui in your project")
-  .option("--preset <name>", "Preset: react, next, vite, landing-page, typescript-library")
-  .action(async (opts: { preset?: string }) => {
-    try {
-      const result = await runInit(process.cwd(), opts);
-      const pkgJson = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8")) as { name?: string };
-      printCommandIntro(process.argv.slice(2).join(" ") || "/init");
-      printPanel("Setup Complete", [
-        `${chalk.cyan("Project:")} ${chalk.bold(pkgJson.name || path.basename(process.cwd()))}`,
-        `${chalk.cyan("Try:")} ${chalk.bold("better-ui-cli /scan")} to generate a report or ${chalk.bold("better-ui-cli /health")} for project health.`
-      ], "green");
-      printPanel("Note", [chalk.dim(INIT_NOTE)], "cyan");
-      printRelatedCommands("init");
-      if (result?.openTui) {
-        await runTui();
-      }
-    } catch (err) {
-      console.error("Init failed:", err);
-      process.exitCode = 2;
-    }
   });
 
 program

@@ -16,7 +16,6 @@ npx ts-node src/cli.ts /advanced
 - `--scan-images`: Groups your image optimization scan with your code scan.
 - `--top <n>`: Increase or decrease the number of "Hotspots" (highest technical debt files) shown in your summary.
 - `--no-save`: Prevents the report from being written to disk. Excellent for ephemeral CI runs.
-- `--open`: If `--format html` is used, this tells the OS to automatically pop open your default browser to view the generated dashboard.
 - `--changed` and `--staged`: Scope the scan to the current git diff instead of the whole project.
 - `--verbose`: Show extended output details after the scan, including the raw report path.
 - `--ext <exts>`: Comma-separated file extensions to scan (e.g. `.js,.ts,.tsx`).
@@ -34,9 +33,8 @@ npx ts-node src/cli.ts /advanced
 - `/hotspots --min-score <n>`: Only show files with a score at or above the threshold.
 - `/hotspots --top <n>`: Show more or fewer results.
 
-### Health & Diagnostics (`/health`, `/doctor`, `/deps`)
+### Health & Diagnostics (`/health`, `/deps`)
 - `/health`: Category-level score breakdown with per-category recommendations and image payload summary.
-- `/doctor`: Full project config audit (config, scripts, ESLint config, TypeScript config, framework detection).
 - `/deps`: Find unused dependencies and known-heavy packages with alternative suggestions.
 
 ### Accessibility (`/a11y`)
@@ -61,5 +59,4 @@ npx ts-node src/cli.ts /fix
 npx ts-node src/cli.ts /fix --interactive
 npx ts-node src/cli.ts /hotspots --density --min-score 3
 npx ts-node src/cli.ts /deps
-npx ts-node src/cli.ts /init --preset next
 ```

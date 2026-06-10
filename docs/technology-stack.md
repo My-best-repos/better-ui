@@ -31,7 +31,7 @@
 | `src/cli.ts` | CLI entrypoint and command registration |
 | `src/tui/app.ts` | Interactive TUI and command palette |
 | `src/cli/workflows.ts` | Shared application workflows |
-| `src/cli/initCommand.ts` | `/init` interactive assistant and config bootstrapping |
+
 | `src/scanners/` | ESLint, image, and dependency scanners |
 | `src/reporters/` | Terminal, markdown, HTML, and report formatting |
 | `src/terminalUi.ts` | Shared terminal panels, grids, score bar, and run summary helpers |

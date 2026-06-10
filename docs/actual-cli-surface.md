@@ -4,7 +4,7 @@ This document describes every command available in the CLI, their flags, and beh
 
 The repository and product name are `better-ui`. The published npm package and executable are `better-ui-cli`.
 
-The CLI is slash-only at the top level. Use `/scan`, `/doctor`, `/menu`, and similar forms.
+The CLI is slash-only at the top level. Use `/scan`, `/hotspots`, `/menu`, and similar forms.
 
 ## Commands
 
@@ -25,7 +25,6 @@ Runs ESLint, TypeScript diagnostics, and frontend heuristics across the project.
 | `--staged` | boolean | off | Scan only staged git files |
 | `--top <n>` | number | 5 | Number of hotspots to display in the summary |
 | `--scan-images` | boolean | off | Also run the image scanner during the scan |
-| `--open` | boolean | off | Open the HTML report in the default browser (requires `--format html`) |
 | `--verbose` | boolean | off | Show extended output after the scan (e.g. raw report path) |
 | `--no-save` | boolean | off | Skip writing the report to disk (result stays in memory) |
 
@@ -237,15 +236,6 @@ Each error contributes 1 point, each pair of warnings contributes 1 point. The m
 
 ## Report format details
 
-### JSON and HTML companion files
-
-When writing JSON (`--format json`) or HTML (`--format html`) reports, the system also writes a companion `.txt` file containing a Markdown summary of the same report alongside the primary file. For example:
-
-- `report.json` → also writes `report.txt`
-- `report.html` → also writes `report.txt`
-
-This ensures a human-readable summary is always available alongside machine-oriented formats.
-
 ### HTML report template
 
 The HTML reporter generates a minimal template — the entire report is embedded as formatted JSON inside `<pre>` tags. It is not a rich visual dashboard; it is a quick way to view the report in a browser.
@@ -267,7 +257,7 @@ The file extension depends on the format: `.json` for json, `.md` for markdown, 
 
 The CLI supports slash-style aliases via `src/slashCommands.ts` and rejects non-slash top-level invocations. Every primary menu action in the TUI has a slash equivalent.
 
-**Full alias list:** `/scan`, `/changed`, `/staged`, `/fix`, `/fix-apply`, `/fix-interactive`, `/health`, `/doctor`, `/hotspots`, `/a11y`, `/deps`, `/explain`, `/images`, `/init`, `/seo`, `/tech-debt`, `/performance`, `/stack-audit`, `/migration`, `/fe-score`, `/advanced`, `/menu`, `/commands`, `/exit`, `/ui-colors`, `/ui-standards`, `/ui-typography`, `/ui-spacing`.
+**Full alias list:** `/scan`, `/changed`, `/staged`, `/fix`, `/fix-apply`, `/fix-interactive`, `/health`, `/hotspots`, `/a11y`, `/deps`, `/images`, `/seo`, `/tech-debt`, `/performance`, `/stack-audit`, `/migration`, `/fe-score`, `/advanced`, `/menu`, `/commands`, `/exit`, `/ui-colors`, `/ui-standards`, `/ui-typography`, `/ui-spacing`.
 
 ## Notes for automation and AI agents
 
