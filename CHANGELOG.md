@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/My-best-repos/better-ui/compare/v1.2.1...v1.3.0) (2026-06-10)
+
+
+### Features
+
+* enrich /explain with per-rule knowledge, simplify /init, remove report auto-save ([64e06b5](https://github.com/My-best-repos/better-ui/commit/64e06b5db09c24ff7016f5131f6cee89d31b78eb))
+
+
+### Bug Fixes
+
+* handle Ctrl+C gracefully during TUI prompts ([9544366](https://github.com/My-best-repos/better-ui/commit/9544366caa4c22a33d8bc12a5fac4e4d9c880c30))
+
 ## [1.2.1](https://github.com/My-best-repos/better-ui/compare/v1.2.0...v1.2.1) (2026-06-03)
 
 
